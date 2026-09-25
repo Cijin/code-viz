@@ -8,9 +8,6 @@ Color :: struct {
 	r, g, b, a: u8,
 }
 
-COL_CODE      :: Color{40, 110, 180, 255}
-COL_DATA_RW   :: Color{210, 95, 45, 255}
-COL_DATA_RO   :: Color{75, 140, 95, 255}
 COL_STRUCT    :: Color{110, 75, 175, 255}
 COL_PACKAGE   :: Color{55, 58, 68, 255}
 COL_WASTE     :: Color{215, 55, 60, 220}
@@ -24,12 +21,9 @@ COL_FIELD_B   :: Color{70, 190, 140, 255}
 COL_PADDING   :: Color{225, 45, 50, 255}
 COL_SPLIT     :: Color{235, 195, 60, 255}
 COL_OWN_PKG   :: Color{20, 105, 95, 255}
-// The user's own code uses a green/teal family so "mine" reads at a glance;
-// kinds stay distinguishable within it.
-COL_OWN_CODE    :: Color{35, 150, 130, 255}
-COL_OWN_DATA_RW :: Color{125, 175, 60, 255}
-COL_OWN_DATA_RO :: Color{60, 165, 185, 255}
+// The user's own code uses a green/teal family so "mine" reads at a glance.
 COL_OWN_STRUCT  :: Color{45, 160, 110, 255}
+COL_OWN_FILE    :: Color{25, 125, 112, 255}
 COL_MUTED     :: Color{62, 65, 74, 255}
 
 set_color :: proc(r: ^sdl.Renderer, c: Color) {
@@ -54,12 +48,21 @@ draw_text :: proc(r: ^sdl.Renderer, x, y: f32, text: string, c: Color) {
 	sdl.RenderDebugText(r, x, y, cstr)
 }
 
+// Pixels per logical unit (2 on Retina). Drawing happens in logical units and
+// the renderer scales by this, so the bitmap debug font stays crisp.
+pixel_density: f32 = 1
+
+apply_pixel_density :: proc(r: ^sdl.Renderer, window: ^sdl.Window) {
+	pixel_density = max(sdl.GetWindowPixelDensity(window), 1)
+	sdl.SetRenderScale(r, pixel_density, pixel_density)
+}
+
 draw_text_scaled :: proc(r: ^sdl.Renderer, x, y: f32, text: string, scale: f32, c: Color) {
 	cstr := strings.clone_to_cstring(text, context.temp_allocator)
 	set_color(r, c)
-	sdl.SetRenderScale(r, scale, scale)
+	sdl.SetRenderScale(r, pixel_density * scale, pixel_density * scale)
 	sdl.RenderDebugText(r, x / scale, y / scale, cstr)
-	sdl.SetRenderScale(r, 1, 1)
+	sdl.SetRenderScale(r, pixel_density, pixel_density)
 }
 
 // Blends `c` toward a neutral grey so internals recede behind the user's code.
@@ -68,55 +71,22 @@ mute :: proc(c: Color) -> Color {
 	return Color{mix(c.r, COL_MUTED.r), mix(c.g, COL_MUTED.g), mix(c.b, COL_MUTED.b), c.a}
 }
 
-node_color :: proc(n: ^Node) -> Color {
-	if n.own {
-		#partial switch n.kind {
-		case .Package: return COL_OWN_PKG
-		case .Code:    return COL_OWN_CODE
-		case .Data_RW: return COL_OWN_DATA_RW
-		case .Data_RO: return COL_OWN_DATA_RO
-		case .Struct:  return COL_OWN_STRUCT
-		}
-	}
-	c := kind_color(n)
-	if n.kind != .Package && n.kind != .Root do return mute(c)
-	return c
+// Dark text on the bright struct tiles, light text on the darker file
+// headers and muted internals, keeping labels at readable contrast.
+label_color :: proc(n: ^Node) -> Color {
+	return n.kind == .Struct && n.own ? COL_BG : COL_TEXT
 }
 
-kind_color :: proc(n: ^Node) -> Color {
+node_color :: proc(n: ^Node) -> Color {
 	switch n.kind {
-	case .Code:
-		return COL_CODE
-	case .Data_RW:
-		return COL_DATA_RW
-	case .Data_RO:
-		return COL_DATA_RO
 	case .Struct:
-		return COL_STRUCT
-	case .Package:
-		return COL_PACKAGE
+		return n.own ? COL_OWN_STRUCT : mute(COL_STRUCT)
+	case .File:
+		return n.own ? COL_OWN_FILE : COL_PACKAGE
 	case .Root:
 		return COL_BG
 	}
 	return COL_BG
-}
-
-kind_label :: proc(k: Node_Kind) -> string {
-	switch k {
-	case .Code:
-		return "Code"
-	case .Data_RW:
-		return "Mutable RAM"
-	case .Data_RO:
-		return "Read-Only"
-	case .Struct:
-		return "Struct"
-	case .Package:
-		return "Package"
-	case .Root:
-		return "Root"
-	}
-	return ""
 }
 
 MAX_TREEMAP_DEPTH :: 5
@@ -132,40 +102,34 @@ clip_text :: proc(text: string, max_px: f32) -> string {
 	return fmt.tprintf("%s..", text[:max_chars - 2])
 }
 
-// Human-readable size of a view root: struct counts or kilobytes.
-scope_amount :: proc(state: ^App_State, size: u64, count: int) -> string {
-	if state.show_structs do return fmt.tprintf("%d structs", count)
-	return fmt.tprintf("%.1f KB", f32(size) / 1024)
-}
-
 // Draws the header, wrapping the key help and status onto their own lines
 // when the window is too narrow to share a line. Returns the height used.
 draw_header :: proc(r: ^sdl.Renderer, state: ^App_State, win_w: i32) -> f32 {
 	w := f32(win_w)
 	pad := f32(10)
 
-	title := state.show_structs ? "Structs / Cache-Line View" : "Binary Footprint"
-	help := "[Tab] view  [A] internals  [R] rebuild  [Click] in  [RMB/Esc] out"
+	title := "Struct Layouts"
+	help := "[A] internals  [R] rebuild  [Click] open  [RMB/Esc] back"
 	title_w := f32(len(title)) * CHAR_W * 2
 	help_w := f32(len(help)) * CHAR_W
 	help_inline := pad + title_w + 3 * pad + help_w + pad <= w
 
+	// Breadcrumb: root (with struct counts) > zoomed file > open struct.
 	crumbs := strings.builder_make(context.temp_allocator)
-	full := state.show_structs ? state.struct_root : state.symbol_root
-	own := state.show_structs ? state.own_structs : state.own_symbols
-	if full != nil && own != nil && !state.show_internals {
-		fmt.sbprintf(&crumbs, "your code: %s of %s  |  ", scope_amount(state, own.size, len(own.children)), scope_amount(state, full.size, len(full.children)))
-	}
-	strings.write_string(&crumbs, "path: ")
-	for n, i in state.nav_stack {
-		if i > 0 do strings.write_string(&crumbs, " > ")
+	path := make([dynamic]^Node, context.temp_allocator)
+	append(&path, ..state.nav_stack[:])
+	if state.active_root != nil do append(&path, state.active_root)
+	if state.viewing_struct != nil do append(&path, state.viewing_struct)
+	for n, i in path {
+		if i > 0 do strings.write_string(&crumbs, "  >  ")
 		strings.write_string(&crumbs, n.name)
-	}
-	if len(state.nav_stack) > 0 do strings.write_string(&crumbs, " > ")
-	if state.active_root != nil do strings.write_string(&crumbs, state.active_root.name)
-	if state.viewing_struct != nil {
-		strings.write_string(&crumbs, " > ")
-		strings.write_string(&crumbs, state.viewing_struct.name)
+		if n.kind == .Root && state.struct_root != nil {
+			if n == state.own_structs {
+				fmt.sbprintf(&crumbs, " (%d of %d)", struct_count(n), struct_count(state.struct_root))
+			} else {
+				fmt.sbprintf(&crumbs, " (%d)", struct_count(n))
+			}
+		}
 	}
 	crumb_text := strings.to_string(crumbs)
 
@@ -210,25 +174,21 @@ draw_treemap :: proc(r: ^sdl.Renderer, nodes: []^Node, area: sdl.FRect, mx, my: 
 	for n in nodes do draw_treemap_node(r, n, 0, mx, my, hovered)
 }
 
-// Top level with internals shown: the user's code and the internals each get
-// their own pane at independent scale (the user's code is often ~10% of the
-// binary and would be a sliver otherwise). A share bar keeps the real
+// Top level with internals shown: the user's structs and the internals each
+// get their own pane at independent scale (the user's are usually a small
+// fraction and would be a sliver otherwise). A share bar keeps the real
 // proportion visible.
 draw_split_overview :: proc(r: ^sdl.Renderer, state: ^App_State, full, own: ^Node, area: sdl.FRect, mx, my: f32) {
 	others := make([dynamic]^Node, context.temp_allocator)
-	other_size: u64 = 0
-	for n in full.children do if !n.own {
-		append(&others, n)
-		other_size += n.size
-	}
+	for n in full.children do if !n.own do append(&others, n)
 
 	// Share bar
+	own_n, total_n := struct_count(own), struct_count(full)
 	bar := sdl.FRect{area.x, area.y, area.w, LINE_H + 4}
-	frac := full.size > 0 ? f32(own.size) / f32(full.size) : 0
+	frac := total_n > 0 ? f32(own_n) / f32(total_n) : 0
 	fill_rect(r, bar, COL_MUTED)
-	fill_rect(r, sdl.FRect{bar.x, bar.y, max(bar.w * frac, 2), bar.h}, COL_OWN_CODE)
-	share := fmt.tprintf("your code %s (%.1f%%)  |  internals %s", scope_amount(state, own.size, len(own.children)),
-		frac * 100, scope_amount(state, other_size, len(others)))
+	fill_rect(r, sdl.FRect{bar.x, bar.y, max(bar.w * frac, 2), bar.h}, COL_OWN_STRUCT)
+	share := fmt.tprintf("your structs %d (%.1f%%)  |  internals %d", own_n, frac * 100, len(others))
 	draw_text(r, bar.x + 6, bar.y + 6, clip_text(share, bar.w - 12), COL_TEXT)
 
 	body := sdl.FRect{area.x, area.y + bar.h + 4, area.w, area.h - bar.h - 4}
@@ -250,7 +210,7 @@ draw_split_overview :: proc(r: ^sdl.Renderer, state: ^App_State, full, own: ^Nod
 		col:   Color,
 		nodes: []^Node,
 	}{
-		{own_pane, "YOUR CODE", COL_OWN_PKG, own.children[:]},
+		{own_pane, "YOUR STRUCTS", COL_OWN_PKG, own.children[:]},
 		{other_pane, "INTERNALS (core / base / vendor)", COL_PACKAGE, others[:]},
 	}
 	for p in panes {
@@ -288,7 +248,7 @@ draw_treemap_node :: proc(r: ^sdl.Renderer, n: ^Node, depth: int, mx, my: f32, h
 
 	if rect.w > 34 && rect.h > 14 {
 		label := clip_text(n.name, rect.w - 6)
-		draw_text(r, rect.x + 3, rect.y + 3, label, n.own ? COL_TEXT : COL_TEXT_DIM)
+		draw_text(r, rect.x + 3, rect.y + 3, label, label_color(n))
 	}
 
 	if depth >= MAX_TREEMAP_DEPTH do return
@@ -304,101 +264,266 @@ draw_treemap_node :: proc(r: ^sdl.Renderer, n: ^Node, depth: int, mx, my: f32, h
 	}
 }
 
-// Level 3: renders `s`'s bytes as an 8-byte-wide, 8-row-per-cacheline grid,
-// coloring struct fields (alternating), padding holes (red), and any field
-// that straddles a 64-byte cacheline boundary (yellow).
-draw_struct_cache_grid :: proc(r: ^sdl.Renderer, s: ^Node, area: sdl.FRect, mx, my: f32) {
+// Color of field `fi` in the detail view: padding red, cache-line splits
+// yellow, and real fields alternating so neighbours stay distinguishable.
+field_colors :: proc(s: ^Node) -> []Color {
+	colors := make([]Color, len(s.fields), context.temp_allocator)
+	real := 0
+	for f, fi in s.fields {
+		switch {
+		case f.is_padding:
+			colors[fi] = COL_PADDING
+		case field_splits_cacheline(f):
+			colors[fi] = COL_SPLIT
+		case:
+			colors[fi] = real % 2 == 0 ? COL_FIELD_A : COL_FIELD_B
+		}
+		if !f.is_padding do real += 1
+	}
+	return colors
+}
+
+field_splits_cacheline :: proc(f: Struct_Field) -> bool {
+	if f.is_padding || f.size == 0 || f.size >= 64 do return false
+	return f.offset / 64 != (f.offset + f.size - 1) / 64
+}
+
+point_in :: proc(rc: sdl.FRect, x, y: f32) -> bool {
+	return x >= rc.x && x < rc.x + rc.w && y >= rc.y && y < rc.y + rc.h
+}
+
+DETAIL_CELL_W :: f32(44)
+DETAIL_CELL_H :: f32(22)
+DETAIL_ROW_H  :: f32(20)
+COL_ACCENT    :: Color{95, 205, 175, 255}
+
+// Draws `label` dim then `value` bright (or `value_col`) and returns the x
+// after the pair, for a row of stats.
+draw_stat :: proc(r: ^sdl.Renderer, x, y: f32, label, value: string, value_col := COL_TEXT) -> f32 {
+	draw_text(r, x, y, label, COL_TEXT_DIM)
+	vx := x + f32(len(label) + 1) * CHAR_W
+	draw_text(r, vx, y, value, value_col)
+	return vx + f32(len(value)) * CHAR_W + 4 * CHAR_W
+}
+
+// Right-aligns `text` so it ends at `right`.
+draw_text_right :: proc(r: ^sdl.Renderer, right, y: f32, text: string, c: Color) {
+	draw_text(r, right - f32(len(text)) * CHAR_W, y, text, c)
+}
+
+// Clicked-struct view: a title block (name, source, stats), the bytes as an
+// 8-wide grid split into 64-byte cache lines, and a field table (offset,
+// size, name, type) with padding holes and cache-line boundaries. Hovering a
+// field in either the grid or the table highlights it in both.
+draw_struct_detail :: proc(r: ^sdl.Renderer, s: ^Node, area: sdl.FRect, mx, my: f32) {
+	pad := f32(20)
+	x0 := area.x + pad
+	y := area.y + 16
+
+	// Title block: name > where it lives > stats.
+	draw_text_scaled(r, x0, y, clip_text(s.name, (area.w - 2 * pad) / 2), 2.0, COL_TEXT)
+	y += 26
+	if s.decl.line > 0 {
+		draw_text(r, x0, y, clip_text(fmt.tprintf("%s:%d", s.decl.file, s.decl.line), area.w - 2 * pad), COL_ACCENT)
+		y += 20
+	}
+	waste_pct := s.size > 0 ? f32(s.pad_bytes) / f32(s.size) * 100 : 0
+	sx := x0
+	sx = draw_stat(r, sx, y, "SIZE", fmt_size(s.size))
+	sx = draw_stat(r, sx, y, "FIELDS", fmt.tprintf("%d", len(s.fields) - padding_field_count(s)))
+	sx = draw_stat(r, sx, y, "PADDING", fmt.tprintf("%d B (%.1f%%)", s.pad_bytes, waste_pct), s.pad_bytes > 0 ? COL_PADDING : COL_TEXT)
+	sx = draw_stat(r, sx, y, "CACHE LINES", fmt.tprintf("%d", s.cachelines))
+	y += 22
+	fill_rect(r, sdl.FRect{x0, y, area.w - 2 * pad, 1}, COL_HEADER_BG)
+	y += 18
+
 	if s.size == 0 do return
-
 	total_bytes := int(s.size)
-	rows := (total_bytes + 7) / 8
-	cell_w := (area.w - 20) / 8
-	if cell_w > 46 do cell_w = 46
-	row_h := f32(22)
-
-	cacheline_gap := f32(22)
-	x0 := area.x + 16
-	y := area.y + 10
+	colors := field_colors(s)
 
 	field_of_byte := make([]int, total_bytes, context.temp_allocator)
-	for i := 0; i < total_bytes; i += 1 do field_of_byte[i] = -1
-	for fi := 0; fi < len(s.fields); fi += 1 {
-		f := s.fields[fi]
-		for b := int(f.offset); b < int(f.offset) + int(f.size) && b < total_bytes; b += 1 {
-			field_of_byte[b] = fi
-		}
+	for &b in field_of_byte do b = -1
+	for f, fi in s.fields {
+		for b := int(f.offset); b < int(f.offset + f.size) && b < total_bytes; b += 1 do field_of_byte[b] = fi
 	}
 
+	// Table columns (fixed width, so it doesn't stretch across wide windows).
+	col_swatch := f32(0)
+	col_off_end := col_swatch + 18 + 6 * CHAR_W
+	col_size_end := col_off_end + 6 * CHAR_W
+	col_name := col_size_end + 3 * CHAR_W
+	col_type := col_name + 20 * CHAR_W
+	table_w := col_type + 28 * CHAR_W
+
+	// Side by side when there's room for the table, otherwise stacked.
+	grid_w := DETAIL_CELL_W * 8
+	table_x := x0 + grid_w + 48
+	table_y := y
+	stacked := area.x + area.w - pad - table_x < table_w
+
+	// Pass 1: place grid rows and table rows so hover is known before drawing.
+	cells := make([]sdl.FRect, total_bytes, context.temp_allocator)
+	Cl_Header :: struct {
+		y:  f32,
+		cl: int,
+	}
+	cl_headers := make([dynamic]Cl_Header, context.temp_allocator)
+	gy := y
+	rows := (total_bytes + 7) / 8
 	for row := 0; row < rows; row += 1 {
 		if row % 8 == 0 {
-			cl := row / 8
-			hdr := fmt.tprintf("CACHE LINE #%d (Bytes %d..%d)", cl, cl * 64, cl * 64 + 63)
-			draw_text(r, x0, y, hdr, COL_TEXT)
-			y += 18
-			line_rect := sdl.FRect{x0, y - 2, cell_w * 8, 2}
-			fill_rect(r, line_rect, COL_SPLIT)
+			append(&cl_headers, Cl_Header{gy, row / 8})
+			gy += 20
 		}
-
 		for col := 0; col < 8; col += 1 {
 			b := row * 8 + col
-			cell := sdl.FRect{x0 + f32(col) * cell_w, y, cell_w - 2, row_h - 2}
+			if b < total_bytes do cells[b] = {x0 + f32(col) * DETAIL_CELL_W, gy, DETAIL_CELL_W, DETAIL_CELL_H - 2}
+		}
+		gy += DETAIL_CELL_H
+		if (row + 1) % 8 == 0 do gy += 14
+	}
+	if stacked {
+		table_x = x0
+		table_y = gy + 24
+	}
 
-			if b >= total_bytes {
-				fill_rect(r, cell, COL_BG)
-				draw_rect_outline(r, cell, COL_BORDER)
-				continue
-			}
+	Table_Row :: struct {
+		rect:    sdl.FRect,
+		field:   int, // -1 for a cache-line divider
+		divider: int,
+	}
+	table_rows := make([dynamic]Table_Row, context.temp_allocator)
+	ty := table_y + DETAIL_ROW_H + 4 // below the column headings
+	cur_cl := -1
+	for f, fi in s.fields {
+		if cl := int(f.offset) / 64; cl != cur_cl {
+			cur_cl = cl
+			append(&table_rows, Table_Row{{table_x, ty, table_w, DETAIL_ROW_H}, -1, cl})
+			ty += DETAIL_ROW_H
+		}
+		append(&table_rows, Table_Row{{table_x, ty, table_w, DETAIL_ROW_H}, fi, 0})
+		ty += DETAIL_ROW_H
+	}
 
-			fi := field_of_byte[b]
-			col_color := COL_PADDING
-			label := "PADDING"
-			is_pad := true
-			if fi >= 0 {
-				f := s.fields[fi]
-				is_pad = f.is_padding
-				label = f.name
-				col_color = f.is_padding ? COL_PADDING : (fi % 2 == 0 ? COL_FIELD_A : COL_FIELD_B)
+	hovered := -1
+	for rc, b in cells do if point_in(rc, mx, my) do hovered = field_of_byte[b]
+	for tr in table_rows do if tr.field >= 0 && point_in(tr.rect, mx, my) do hovered = tr.field
 
-				field_start_cl := int(f.offset) / 64
-				field_end_cl := int(f.offset + f.size - 1) / 64
-				if !f.is_padding && f.size < 64 && field_start_cl != field_end_cl {
-					col_color = COL_SPLIT
-				}
-			}
+	// Pass 2: grid. Each field is one solid bar per row (so labels aren't cut
+	// by cell gaps) with faint ticks at byte boundaries.
+	for h in cl_headers {
+		label := fmt.tprintf("CACHE LINE %d", h.cl)
+		draw_text(r, x0, h.y, label, COL_SPLIT)
+		draw_text(r, x0 + f32(len(label) + 2) * CHAR_W, h.y, fmt.tprintf("bytes %d-%d", h.cl * 64, h.cl * 64 + 63), COL_TEXT_DIM)
+	}
+	for b := 0; b < total_bytes; {
+		fi := field_of_byte[b]
+		run_end := b + 1
+		for run_end < total_bytes && run_end % 8 != 0 && field_of_byte[run_end] == fi do run_end += 1
 
-			fill_rect(r, cell, col_color)
-			draw_rect_outline(r, cell, COL_BORDER)
-
-			inside := mx >= cell.x && mx < cell.x + cell.w && my >= cell.y && my < cell.y + cell.h
-			if inside {
-				tip := fmt.tprintf("byte %d: %s%s", b, label, is_pad ? " (hole)" : "")
-				draw_text(r, area.x, area.y + area.h - 20, tip, COL_TEXT)
-			}
+		first, last := cells[b], cells[run_end - 1]
+		run := sdl.FRect{first.x, first.y, last.x + last.w - first.x - 2, first.h}
+		fill_rect(r, run, fi >= 0 ? colors[fi] : COL_BG)
+		for t := b + 1; t < run_end; t += 1 {
+			fill_rect(r, sdl.FRect{cells[t].x - 1, run.y + run.h - 5, 1, 5}, COL_BORDER)
 		}
 
-		y += row_h + (((row + 1) % 8 == 0) ? cacheline_gap - row_h : 0)
+		if fi >= 0 {
+			f := s.fields[fi]
+			// Label only the row where the field starts.
+			if b == int(f.offset) {
+				label := f.is_padding ? "pad" : f.name
+				draw_text(r, run.x + 4, run.y + 6, clip_text(label, run.w - 8), COL_BG)
+			}
+			if fi == hovered {
+				draw_rect_outline(r, run, COL_TEXT)
+				draw_rect_outline(r, sdl.FRect{run.x - 1, run.y - 1, run.w + 2, run.h + 2}, COL_TEXT)
+			}
+		}
+		b = run_end
 	}
+
+	// Pass 2: table
+	bottom := area.y + area.h
+	if table_y < bottom {
+		draw_text_right(r, table_x + col_off_end, table_y, "OFFSET", COL_TEXT_DIM)
+		draw_text_right(r, table_x + col_size_end, table_y, "SIZE", COL_TEXT_DIM)
+		draw_text(r, table_x + col_name, table_y, "FIELD", COL_TEXT_DIM)
+		draw_text(r, table_x + col_type, table_y, "TYPE", COL_TEXT_DIM)
+		fill_rect(r, sdl.FRect{table_x, table_y + 14, table_w, 1}, COL_HEADER_BG)
+	}
+	for tr in table_rows {
+		rc := tr.rect
+		if rc.y + rc.h > bottom do break
+		text_y := rc.y + 6
+		if tr.field < 0 {
+			label := fmt.tprintf("cache line %d", tr.divider)
+			draw_text(r, rc.x, text_y, label, COL_SPLIT)
+			lx := rc.x + f32(len(label) + 1) * CHAR_W
+			fill_rect(r, sdl.FRect{lx, rc.y + rc.h / 2 + 1, rc.x + rc.w - lx, 1}, mute(COL_SPLIT))
+			continue
+		}
+		f := s.fields[tr.field]
+		if tr.field == hovered do fill_rect(r, rc, COL_HEADER_BG)
+		fill_rect(r, sdl.FRect{rc.x + col_swatch, rc.y + 5, 10, 10}, colors[tr.field])
+
+		num_col := f.is_padding ? COL_PADDING : COL_TEXT_DIM
+		draw_text_right(r, rc.x + col_off_end, text_y, fmt.tprintf("%d", f.offset), num_col)
+		draw_text_right(r, rc.x + col_size_end, text_y, fmt.tprintf("%d", f.size), num_col)
+		if f.is_padding {
+			draw_text(r, rc.x + col_name, text_y, "padding", COL_PADDING)
+			continue
+		}
+		draw_text(r, rc.x + col_name, text_y, clip_text(f.name, col_type - col_name - CHAR_W), COL_TEXT)
+		splits := field_splits_cacheline(f)
+		type_text := splits ? fmt.tprintf("%s  splits cache line", f.type_name) : f.type_name
+		draw_text(r, rc.x + col_type, text_y, clip_text(type_text, table_w - col_type), splits ? COL_SPLIT : COL_TEXT_DIM)
+	}
+}
+
+padding_field_count :: proc(s: ^Node) -> int {
+	n := 0
+	for f in s.fields do if f.is_padding do n += 1
+	return n
+}
+
+fmt_size :: proc(bytes: u64) -> string {
+	if bytes < 1024 do return fmt.tprintf("%d B", bytes)
+	return fmt.tprintf("%.1f KB", f32(bytes) / 1024)
+}
+
+// Short summary of what a tile's area measures.
+describe_node :: proc(n: ^Node) -> string {
+	switch n.kind {
+	case .Struct:
+		waste_pct := n.size > 0 ? f32(n.pad_bytes) / f32(n.size) * 100 : 0
+		return fmt.tprintf("%s, %d B pad (%.0f%%), %d cache line(s)", fmt_size(n.size), n.pad_bytes, waste_pct, n.cachelines)
+	case .File:
+		return fmt.tprintf("%d structs", len(n.children))
+	case .Root:
+	}
+	return fmt_size(n.size)
 }
 
 draw_tooltip :: proc(r: ^sdl.Renderer, n: ^Node, mx, my: f32, win_w, win_h: i32) {
 	if n == nil do return
 
-	lines := make([dynamic]string, context.temp_allocator)
-	append(&lines, n.name)
-	append(&lines, fmt.tprintf("Kind: %s%s", kind_label(n.kind), n.own ? " (your code)" : " (internal)"))
-	append(&lines, fmt.tprintf("Size: %d B (%.2f KB)", n.size, f32(n.size) / 1024))
-
-	if n.kind == .Struct {
-		waste_pct := n.size > 0 ? f32(n.pad_bytes) / f32(n.size) * 100 : 0
-		append(&lines, fmt.tprintf("Padding: %d B (%.1f%% waste)", n.pad_bytes, waste_pct))
-		append(&lines, fmt.tprintf("Cachelines spanned: %d", n.cachelines))
+	Line :: struct {
+		text:  string,
+		color: Color,
+	}
+	lines := make([dynamic]Line, context.temp_allocator)
+	append(&lines, Line{n.name, COL_TEXT})
+	append(&lines, Line{describe_node(n), COL_TEXT})
+	if n.decl.line > 0 {
+		append(&lines, Line{fmt.tprintf("%s:%d", n.decl.file, n.decl.line), COL_TEXT_DIM})
 	}
 
 	longest := 0
-	for l in lines do if len(l) > longest do longest = len(l)
+	for l in lines do longest = max(longest, len(l.text))
 
-	w := f32(longest) * 8 + 16
-	h := f32(len(lines)) * 16 + 12
+	w := f32(longest) * CHAR_W + 16
+	h := f32(len(lines)) * LINE_H + 12
 
 	x := mx + 16
 	y := my + 16
@@ -410,6 +535,6 @@ draw_tooltip :: proc(r: ^sdl.Renderer, n: ^Node, mx, my: f32, win_w, win_h: i32)
 	draw_rect_outline(r, rect, COL_TEXT_DIM)
 
 	for l, i in lines {
-		draw_text(r, x + 8, y + 6 + f32(i) * 16, l, COL_TEXT)
+		draw_text(r, x + 8, y + 6 + f32(i) * LINE_H, l.text, l.color)
 	}
 }

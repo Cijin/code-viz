@@ -4,15 +4,19 @@ import sdl "vendor:sdl3"
 
 Node_Kind :: enum {
 	Root,
-	Package,
-	Code,
-	Data_RW,
-	Data_RO,
+	File,
 	Struct,
+}
+
+// Where a top-level declaration lives in the user's source.
+Source_Decl :: struct {
+	file: string, // relative to the working directory
+	line: int,
 }
 
 Struct_Field :: struct {
 	name:       string,
+	type_name:  string, // as the debug info spells it, e.g. `u16[3]`, `^Node`
 	offset:     u32,
 	size:       u32,
 	is_padding: bool,
@@ -25,6 +29,7 @@ Node :: struct {
 	cachelines: u32,
 	kind:       Node_Kind,
 	own:        bool, // declared under the target dir (vs core/base/vendor)
+	decl:       Source_Decl,
 	rect:       sdl.FRect,
 	children:   [dynamic]^Node,
 	fields:     [dynamic]Struct_Field,
@@ -33,15 +38,13 @@ Node :: struct {
 App_State :: struct {
 	target_dir:   string,
 	bin_path:     string,
-	symbol_root:  ^Node,
 	struct_root:  ^Node,
-	own_symbols:  ^Node, // symbol_root/struct_root narrowed to own_packages
-	own_structs:  ^Node,
+	own_structs:  ^Node, // struct_root narrowed to own_packages, grouped by file
 	own_packages: map[string]bool,
+	own_decls:    map[string]Source_Decl, // "pkg::Name" -> declaration site
 	show_internals: bool,
 	active_root:  ^Node,
 	nav_stack:    [dynamic]^Node,
-	show_structs:   bool,
 	hovered:        ^Node,
 	viewing_struct: ^Node,
 

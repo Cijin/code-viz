@@ -7,43 +7,6 @@ import "core:strings"
 
 STRUCT_TOOL_HINT :: "pahole not found - install the `dwarves` package for struct/cache-line view"
 
-classify_symbol_kind :: proc(type_char: u8) -> (kind: Node_Kind, ok: bool) {
-	switch type_char {
-	case 'T', 't', 'W', 'w':
-		return .Code, true
-	case 'D', 'd', 'B', 'b', 'V', 'v':
-		return .Data_RW, true
-	case 'R', 'r':
-		return .Data_RO, true
-	}
-	return .Code, false
-}
-
-// Parses `nm -S --size-sort --radix=d` output into a Root -> Package -> Symbol tree.
-// ELF records symbol sizes, so nm reports them directly.
-extract_symbols :: proc(bin_path: string) -> ^Node {
-	tree := symbol_tree_make()
-
-	cmd := fmt.tprintf("nm -S --size-sort --radix=d %s 2>/dev/null", bin_path)
-	out := run_cmd(cmd)
-	lines := strings.split_lines(out, context.temp_allocator)
-
-	for line in lines {
-		fields := strings.fields(line, context.temp_allocator)
-		if len(fields) < 4 do continue
-
-		size_v, size_ok := strconv.parse_u64(fields[1], 10)
-		if !size_ok || size_v == 0 do continue
-
-		kind, kind_ok := classify_symbol_kind(fields[2][0])
-		if !kind_ok do continue
-
-		symbol_tree_add(&tree, fields[3], size_v, kind)
-	}
-
-	return tree.root
-}
-
 parse_struct_summary :: proc(line: string, n: ^Node) {
 	if idx := strings.index(line, "size:"); idx >= 0 {
 		rest := strings.trim_space(line[idx + len("size:"):])
@@ -90,11 +53,16 @@ try_parse_field :: proc(line: string, n: ^Node) {
 	size_v, size_ok := strconv.parse_u64(toks[1], 10)
 	if !off_ok || !size_ok do return
 
-	name := strings.trim_space(strings.trim_suffix(before, ";"))
-	if idx := strings.last_index_any(name, " \t*}"); idx >= 0 {
-		name = name[idx + 1:]
+	decl := strings.trim_space(strings.trim_suffix(before, ";"))
+	name := decl
+	type_name := ""
+	if idx := strings.last_index_any(decl, " \t*}"); idx >= 0 {
+		name = decl[idx + 1:]
+		type_name = strings.trim_space(decl[:idx + 1])
 	}
+	// pahole spells arrays C-style (`u16 c[3]`); move the extent onto the type.
 	if idx := strings.index_byte(name, '['); idx >= 0 {
+		type_name = fmt.tprintf("%s%s", type_name, name[idx:])
 		name = name[:idx]
 	}
 	name = strings.trim_space(name)
@@ -102,6 +70,7 @@ try_parse_field :: proc(line: string, n: ^Node) {
 
 	append(&n.fields, Struct_Field{
 		name       = strings.clone(name),
+		type_name  = strings.clone(type_name),
 		offset     = u32(offset_v),
 		size       = u32(size_v),
 		is_padding = false,
