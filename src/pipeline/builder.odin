@@ -1,0 +1,171 @@
+package pipeline
+
+import "core:fmt"
+import "core:mem/virtual"
+import "core:os"
+import "core:strconv"
+import "core:strings"
+import "core:sync"
+import "core:sync/chan"
+import snap "../snapshot"
+
+// Receives build requests, runs the compiler, and turns green builds into
+// snapshots. Requests that queue up while a build runs collapse into one.
+@(private)
+builder_loop :: proc(p: ^Pipeline) {
+	for {
+		_, ok := chan.recv(p.requests)
+		if !ok || sync.atomic_load(&p.quit) do return
+		for {
+			if _, more := chan.try_recv(p.requests); !more do break
+		}
+		run_build(p)
+		free_all(context.temp_allocator)
+	}
+}
+
+// A package with `main` builds as an executable. Without one (like the
+// fixtures) it builds in test mode, the only mode that emits its code
+// (docs/VERIFIED.md §1, §4).
+package_has_main :: proc(dir: string) -> bool {
+	fh, err := os.open(dir)
+	if err != nil do return false
+	defer os.close(fh)
+	entries, _ := os.read_dir(fh, -1, context.temp_allocator)
+	for e in entries {
+		if e.type == .Directory || !strings.has_suffix(e.name, ".odin") do continue
+		data, rerr := os.read_entire_file(e.fullpath, context.temp_allocator)
+		if rerr != nil do continue
+		for line in strings.split_lines(string(data), context.temp_allocator) {
+			if strings.has_prefix(line, "main ") || strings.has_prefix(line, "main:") do return true
+		}
+	}
+	return false
+}
+
+// `-o:minimal -debug`: see docs/VERIFIED.md ("Decision"). Returns the
+// command as argv.
+build_command :: proc(pkg_dir, out_path: string, allocator := context.allocator) -> []string {
+	cmd := make([dynamic]string, allocator)
+	append(&cmd, "odin", "build", pkg_dir, "-o:minimal", "-debug", fmt.aprintf("-out:%s", out_path, allocator = allocator))
+	if !package_has_main(pkg_dir) do append(&cmd, "-build-mode:test")
+	return cmd[:]
+}
+
+@(private)
+build_dir :: proc(p: ^Pipeline, id: snap.Build_Id) -> string {
+	return fmt.tprintf("%s/builds/%d", p.cache_dir, id)
+}
+
+@(private)
+run_build :: proc(p: ^Pipeline) {
+	id := p.next_id
+	p.next_id += 1
+	save_next_id(p)
+	emit(p, Event{kind = .Build_Started, id = id})
+
+	dir := build_dir(p, id)
+	os.make_directory_all(dir)
+	artifact := fmt.tprintf("%s/app", dir)
+	state, stdout, stderr, err := os.process_exec(
+		{command = build_command(p.project_dir, artifact, context.temp_allocator), working_dir = p.project_dir},
+		context.temp_allocator,
+	)
+
+	if err != nil || !state.success || state.exit_code != 0 || !os.exists(artifact) {
+		out := strings.concatenate({string(stdout), string(stderr)}, shared_allocator())
+		if err != nil && out == "" do out = fmt.aprintf("cannot run odin: %v", err, allocator = shared_allocator())
+		remove_dir(dir)
+		emit(p, Event{kind = .Build_Failed, id = id, output = out})
+		return
+	}
+
+	s := new(Owned_Snapshot, shared_allocator())
+	if virtual.arena_init_growing(&s.arena) != nil {
+		free(s, shared_allocator())
+		return
+	}
+	{
+		context.allocator = virtual.arena_allocator(&s.arena)
+		s.id = id
+		s.artifact = strings.clone(artifact)
+		analyze(p, s)
+	}
+
+	keep_green(p, id)
+	sync.atomic_store(&p.last_green, id)
+	emit(p, Event{kind = .Build_Green, id = id, snapshot = s})
+}
+
+// Analyzer stage (SPEC §6). Runs with context.allocator set to the
+// snapshot's arena. Later milestones add analyzers here.
+@(private)
+analyze :: proc(p: ^Pipeline, s: ^Owned_Snapshot) {
+	s.source = read_sources(p.project_dir)
+}
+
+// file (project-relative) -> lines, for the line mapping (§7.1).
+read_sources :: proc(project_dir: string) -> map[string][]string {
+	out := make(map[string][]string)
+	walk :: proc(root, dir: string, out: ^map[string][]string) {
+		fh, err := os.open(dir)
+		if err != nil do return
+		defer os.close(fh)
+		entries, _ := os.read_dir(fh, -1, context.temp_allocator)
+		for e in entries {
+			if strings.has_prefix(e.name, ".") || e.name == "build" do continue
+			if e.type == .Directory {
+				walk(root, e.fullpath, out)
+				continue
+			}
+			if !strings.has_suffix(e.name, ".odin") do continue
+			data, rerr := os.read_entire_file(e.fullpath, context.allocator)
+			if rerr != nil do continue
+			rel := strings.clone(strings.trim_prefix(strings.trim_prefix(e.fullpath, root), "/"))
+			out[rel] = strings.split_lines(string(data))
+		}
+	}
+	walk(project_dir, project_dir, &out)
+	return out
+}
+
+// Keeps the last KEEP_GREEN green build dirs and deletes the rest.
+@(private)
+keep_green :: proc(p: ^Pipeline, id: snap.Build_Id) {
+	if p.green.allocator.procedure == nil do p.green.allocator = shared_allocator()
+	append(&p.green, id)
+	for len(p.green) > KEEP_GREEN {
+		remove_dir(build_dir(p, p.green[0]))
+		ordered_remove(&p.green, 0)
+	}
+}
+
+// Build dirs left from a previous session are not tracked; remove them.
+@(private)
+clean_stale_builds :: proc(p: ^Pipeline) {
+	root := fmt.tprintf("%s/builds", p.cache_dir)
+	fh, err := os.open(root)
+	if err != nil do return
+	defer os.close(fh)
+	entries, _ := os.read_dir(fh, -1, context.temp_allocator)
+	for e in entries do if e.type == .Directory do remove_dir(e.fullpath)
+}
+
+@(private)
+remove_dir :: proc(path: string) {
+	os.remove_all(path)
+}
+
+// Build ids continue across sessions, like the mockups' 213 -> 214.
+@(private)
+load_next_id :: proc(p: ^Pipeline) -> snap.Build_Id {
+	data, err := os.read_entire_file(fmt.tprintf("%s/next_id", p.cache_dir), context.temp_allocator)
+	if err != nil do return 1
+	v, ok := strconv.parse_u64(strings.trim_space(string(data)))
+	return ok && v > 0 ? snap.Build_Id(v) : 1
+}
+
+@(private)
+save_next_id :: proc(p: ^Pipeline) {
+	_ = os.write_entire_file(fmt.tprintf("%s/next_id", p.cache_dir), fmt.tprintf("%d\n", p.next_id))
+}

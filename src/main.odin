@@ -5,6 +5,7 @@ import "core:os"
 import "core:strings"
 import sdl "vendor:sdl3"
 import ttf "vendor:sdl3/ttf"
+import "pipeline"
 import snap "snapshot"
 
 App :: struct {
@@ -15,6 +16,45 @@ App :: struct {
 	mouse_x:         f32,
 	mouse_y:         f32,
 	win_w, win_h:    f32,
+	pipe:            pipeline.Pipeline,
+	pipe_running:    bool,
+	// The two newest green snapshots; a failed build never replaces them.
+	prev, curr:      ^pipeline.Owned_Snapshot,
+}
+
+// Registered SDL user event that workers push to wake the UI.
+wake_event: u32
+
+notify_ui :: proc() {
+	ev: sdl.Event
+	ev.type = sdl.EventType(wake_event)
+	// A full queue drops the wake-up; the next event drains the channel anyway.
+	_ = sdl.PushEvent(&ev)
+}
+
+// Applies pipeline events. Returns true when the view should redraw.
+drain_pipeline :: proc() -> (redraw: bool) {
+	for {
+		ev, ok := pipeline.poll(&app.pipe)
+		if !ok do return
+		redraw = true
+		switch ev.kind {
+		case .Build_Started:
+			app.glance.status = .Building
+		case .Build_Failed:
+			app.glance.status = .Failed
+			fmt.eprintf("substrate: build %d failed\n%s", ev.id, ev.output)
+		case .Build_Green:
+			pipeline.snapshot_free(app.prev)
+			app.prev = app.curr
+			app.curr = ev.snapshot
+			ev.snapshot = nil
+			app.glance.status = .Ok
+			app.glance.to = app.curr.id
+			app.glance.from = app.prev != nil ? app.prev.id : app.curr.id
+		}
+		pipeline.event_free(&ev)
+	}
 }
 
 app: App
@@ -97,6 +137,13 @@ main :: proc() {
 	update_scale()
 	app.glance = snap.sample_glance()
 
+	wake_event = sdl.RegisterEvents(1)
+	if app.project_dir != "" && app.screenshot_path == "" {
+		app.pipe_running = pipeline.start(&app.pipe, app.project_dir, notify_ui)
+		if !app.pipe_running do fmt.eprintln("substrate: cannot watch", app.project_dir)
+	}
+	defer if app.pipe_running do pipeline.stop(&app.pipe)
+
 	render()
 	if app.screenshot_path != "" {
 		ok := save_screenshot(app.screenshot_path)
@@ -112,6 +159,8 @@ main :: proc() {
 			#partial switch ev.type {
 			case .QUIT:
 				return
+			case sdl.EventType(wake_event):
+				if app.pipe_running && drain_pipeline() do redraw = true
 			case .WINDOW_RESIZED, .WINDOW_PIXEL_SIZE_CHANGED, .WINDOW_DISPLAY_SCALE_CHANGED:
 				w, h: i32
 				sdl.GetWindowSize(g.window, &w, &h)
