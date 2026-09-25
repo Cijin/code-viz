@@ -3,7 +3,6 @@ package viz
 import "core:c/libc"
 import "core:fmt"
 import "core:os"
-import "core:strconv"
 import "core:strings"
 import "core:sys/posix"
 
@@ -39,14 +38,19 @@ target_has_main :: proc(target_dir: string) -> bool {
 }
 
 // Runs `odin build` on target_dir with debug info and returns the compiled
-// binary path used by the nm/pahole extraction passes.
+// binary path used by the platform's symbol/struct extraction passes.
 compile_target :: proc(target_dir: string) -> (bin_path: string, ok: bool) {
 	bin_path = "/tmp/viz_target"
 
 	extra := ""
 	if !target_has_main(target_dir) {
-		extra = " -build-mode:obj"
+		// A single module yields one object file instead of one per package.
+		bin_path = "/tmp/viz_target.o"
+		extra = " -build-mode:obj -use-single-module"
 	}
+
+	// Clear previous outputs so a failed build can't pass off a stale binary.
+	run_cmd(fmt.tprintf("rm -rf %s %s.dSYM", bin_path, bin_path))
 
 	cmd := fmt.tprintf("odin build %s -debug -out:%s%s 2>&1", target_dir, bin_path, extra)
 	out := run_cmd(cmd)
@@ -55,144 +59,59 @@ compile_target :: proc(target_dir: string) -> (bin_path: string, ok: bool) {
 		return bin_path, true
 	}
 
-	obj_path := fmt.tprintf("%s.o", bin_path)
-	if os.exists(obj_path) {
-		return strings.clone(obj_path), true
-	}
-
 	fmt.eprintln("odin build failed:")
 	fmt.eprintln(out)
 	return "", false
 }
 
-classify_symbol_kind :: proc(type_char: u8) -> (kind: Node_Kind, ok: bool) {
-	switch type_char {
-	case 'T', 't', 'W', 'w':
-		return .Code, true
-	case 'D', 'd', 'B', 'b', 'V', 'v':
-		return .Data_RW, true
-	case 'R', 'r':
-		return .Data_RO, true
-	}
-	return .Code, false
+Symbol_Tree :: struct {
+	root:    ^Node,
+	pkg_map: map[string]^Node,
 }
 
-// Parses `nm -S --size-sort --radix=d` output into a Root -> Package -> Symbol tree.
-extract_symbols :: proc(bin_path: string) -> ^Node {
+symbol_tree_make :: proc() -> Symbol_Tree {
 	root := new(Node)
 	root.kind = .Root
 	root.name = "Binary Footprint"
+	return Symbol_Tree{root = root, pkg_map = make(map[string]^Node, context.temp_allocator)}
+}
 
-	pkg_map := make(map[string]^Node, context.temp_allocator)
-
-	cmd := fmt.tprintf("nm -S --size-sort --radix=d %s 2>/dev/null", bin_path)
-	out := run_cmd(cmd)
-	lines := strings.split_lines(out, context.temp_allocator)
-
-	for line in lines {
-		fields := strings.fields(line, context.temp_allocator)
-		if len(fields) < 4 do continue
-
-		size_v, size_ok := strconv.parse_u64(fields[1], 10)
-		if !size_ok || size_v == 0 do continue
-
-		kind, kind_ok := classify_symbol_kind(fields[2][0])
-		if !kind_ok do continue
-
-		full_name := fields[3]
-		pkg_name := "other"
-		sym_name := full_name
-		if idx := strings.index(full_name, "::"); idx >= 0 {
-			pkg_name = full_name[:idx]
-			sym_name = full_name[idx + 2:]
-		}
-
-		pkg_node, found := pkg_map[pkg_name]
-		if !found {
-			pkg_node = new(Node)
-			pkg_node.kind = .Package
-			pkg_node.name = strings.clone(pkg_name)
-			append(&root.children, pkg_node)
-			pkg_map[pkg_name] = pkg_node
-		}
-
-		sym_node := new(Node)
-		sym_node.kind = kind
-		sym_node.name = strings.clone(sym_name)
-		sym_node.size = size_v
-		append(&pkg_node.children, sym_node)
-		pkg_node.size += size_v
+// Files a symbol under its package, splitting `pkg::name` on the first `::`.
+symbol_tree_add :: proc(t: ^Symbol_Tree, full_name: string, size: u64, kind: Node_Kind) {
+	pkg_name := "other"
+	sym_name := full_name
+	if idx := strings.index(full_name, "::"); idx >= 0 {
+		pkg_name = full_name[:idx]
+		sym_name = full_name[idx + 2:]
+	}
+	// File-private procs are mangled `pkg::[file.odin]::name`.
+	if strings.has_prefix(sym_name, "[") {
+		if idx := strings.index(sym_name, "]::"); idx >= 0 do sym_name = sym_name[idx + 3:]
 	}
 
-	for pkg in root.children {
-		root.size += pkg.size
+	pkg_node, found := t.pkg_map[pkg_name]
+	if !found {
+		pkg_node = new(Node)
+		pkg_node.kind = .Package
+		pkg_node.name = strings.clone(pkg_name)
+		append(&t.root.children, pkg_node)
+		t.pkg_map[pkg_name] = pkg_node
 	}
 
+	sym_node := new(Node)
+	sym_node.kind = kind
+	sym_node.name = strings.clone(sym_name)
+	sym_node.size = size
+	append(&pkg_node.children, sym_node)
+	pkg_node.size += size
+	t.root.size += size
+}
+
+new_struct_root :: proc() -> ^Node {
+	root := new(Node)
+	root.kind = .Root
+	root.name = "Structs (DWARF)"
 	return root
-}
-
-parse_struct_summary :: proc(line: string, n: ^Node) {
-	if idx := strings.index(line, "size:"); idx >= 0 {
-		rest := strings.trim_space(line[idx + len("size:"):])
-		numstr := rest
-		if end := strings.index_any(rest, ", "); end >= 0 {
-			numstr = rest[:end]
-		}
-		if v, ok := strconv.parse_u64(numstr, 10); ok {
-			n.size = v
-		}
-	}
-	if idx := strings.index(line, "cachelines:"); idx >= 0 {
-		rest := strings.trim_space(line[idx + len("cachelines:"):])
-		numstr := rest
-		if end := strings.index_any(rest, ", "); end >= 0 {
-			numstr = rest[:end]
-		}
-		if v, ok := strconv.parse_u64(numstr, 10); ok {
-			n.cachelines = u32(v)
-		}
-	}
-}
-
-// Matches trailing pahole member comments of the form `/*   offset   size */`
-// (offset may be `bitoff:bitfield`) and records the field's name/offset/size.
-try_parse_field :: proc(line: string, n: ^Node) {
-	c_start := strings.index(line, "/*")
-	if c_start < 0 do return
-	c_end := strings.index(line, "*/")
-	if c_end < 0 || c_end <= c_start do return
-
-	comment := strings.trim_space(line[c_start + 2:c_end])
-	before := strings.trim_space(line[:c_start])
-	if before == "" do return
-
-	toks := strings.fields(comment, context.temp_allocator)
-	if len(toks) != 2 do return
-
-	off_tok := toks[0]
-	if idx := strings.index_byte(off_tok, ':'); idx >= 0 {
-		off_tok = off_tok[:idx]
-	}
-	offset_v, off_ok := strconv.parse_u64(off_tok, 10)
-	size_v, size_ok := strconv.parse_u64(toks[1], 10)
-	if !off_ok || !size_ok do return
-
-	name := strings.trim_space(strings.trim_suffix(before, ";"))
-	if idx := strings.last_index_any(name, " \t*}"); idx >= 0 {
-		name = name[idx + 1:]
-	}
-	if idx := strings.index_byte(name, '['); idx >= 0 {
-		name = name[:idx]
-	}
-	name = strings.trim_space(name)
-	if name == "" do return
-
-	append(&n.fields, Struct_Field{
-		name       = strings.clone(name),
-		offset     = u32(offset_v),
-		size       = u32(size_v),
-		is_padding = false,
-	})
 }
 
 // Sorts fields by offset and synthesizes PADDING fields for alignment holes
@@ -239,68 +158,59 @@ finalize_struct :: proc(n: ^Node) {
 	}
 }
 
-// Parses `pahole` output into a Root -> Struct tree with field/padding detail.
-// Returns ok=false when pahole is not installed on the system.
-extract_structs :: proc(bin_path: string) -> (root: ^Node, ok: bool) {
-	root = new(Node)
-	root.kind = .Root
-	root.name = "Structs (DWARF)"
+// Collects the package names declared by .odin files under target_dir, so the
+// views can separate the user's code from core/base/vendor packages.
+collect_own_packages :: proc(target_dir: string, pkgs: ^map[string]bool) {
+	fh, err := os.open(target_dir)
+	if err != nil do return
+	defer os.close(fh)
 
-	which := strings.trim_space(run_cmd("command -v pahole 2>/dev/null"))
-	if which == "" {
-		return root, false
-	}
+	entries, rerr := os.read_dir(fh, -1, context.temp_allocator)
+	if rerr != nil do return
 
-	out := run_cmd(fmt.tprintf("pahole %s 2>/dev/null", bin_path))
-	lines := strings.split_lines(out, context.temp_allocator)
-
-	cur: ^Node
-	depth := 0
-
-	for line in lines {
-		trimmed := strings.trim_space(line)
-
-		if cur == nil {
-			if strings.has_prefix(trimmed, "struct ") && strings.has_suffix(trimmed, "{") {
-				rest := trimmed[len("struct "):]
-				name := rest
-				if idx := strings.index_any(rest, " \t{"); idx >= 0 {
-					name = rest[:idx]
-				}
-				name = strings.trim_space(name)
-				if name != "" {
-					cur = new(Node)
-					cur.kind = .Struct
-					cur.name = strings.clone(name)
-					depth = 1
-				}
-			}
+	for e in entries {
+		if e.type == .Directory {
+			if !strings.has_prefix(e.name, ".") do collect_own_packages(e.fullpath, pkgs)
 			continue
 		}
+		if !strings.has_suffix(e.name, ".odin") do continue
+		data, rd_err := os.read_entire_file(e.fullpath, context.temp_allocator)
+		if rd_err != nil do continue
 
-		open_count := strings.count(line, "{")
-		close_count := strings.count(line, "}")
-		new_depth := depth + open_count - close_count
-
-		if strings.has_prefix(trimmed, "/* size:") {
-			parse_struct_summary(trimmed, cur)
-		} else if !strings.has_prefix(trimmed, "/*") {
-			try_parse_field(line, cur)
-		}
-
-		if new_depth <= 0 {
-			finalize_struct(cur)
-			append(&root.children, cur)
-			cur = nil
-			depth = 0
-		} else {
-			depth = new_depth
+		for line in strings.split_lines(string(data), context.temp_allocator) {
+			trimmed := strings.trim_space(line)
+			if !strings.has_prefix(trimmed, "package ") do continue
+			fields := strings.fields(trimmed, context.temp_allocator)
+			if len(fields) >= 2 && fields[1] not_in pkgs^ {
+				pkgs[strings.clone(fields[1])] = true
+			}
+			break
 		}
 	}
+}
 
-	for s in root.children {
-		root.size += s.size
+node_package :: proc(name: string) -> string {
+	if idx := strings.index(name, "::"); idx >= 0 do return name[:idx]
+	return name
+}
+
+mark_own :: proc(n: ^Node) {
+	n.own = true
+	for child in n.children do mark_own(child)
+}
+
+// Returns a root holding only the children of `full` that belong to `pkgs`,
+// flagging them (and their subtrees) as the user's own code.
+// Symbol children are package nodes; struct children are named `pkg::Type`.
+filter_own :: proc(full: ^Node, pkgs: map[string]bool) -> ^Node {
+	root := new(Node)
+	root.kind = .Root
+	root.name = full.name
+	for child in full.children {
+		if node_package(child.name) not_in pkgs do continue
+		mark_own(child)
+		append(&root.children, child)
+		root.size += child.size
 	}
-
-	return root, true
+	return root
 }

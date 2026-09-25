@@ -18,17 +18,20 @@ build_state :: proc(state: ^App_State) {
 
 	state.symbol_root = extract_symbols(bin_path)
 
-	struct_root, pahole_ok := extract_structs(bin_path)
+	struct_root, structs_ok := extract_structs(bin_path)
 	state.struct_root = struct_root
-	if !pahole_ok {
-		state.status_msg = "pahole not found - install the `dwarves` package for struct/cache-line view"
+	if !structs_ok {
+		state.status_msg = STRUCT_TOOL_HINT
 	} else {
 		state.status_msg = ""
 	}
 
-	clear(&state.nav_stack)
-	state.viewing_struct = nil
-	state.active_root = state.show_structs ? state.struct_root : state.symbol_root
+	clear(&state.own_packages)
+	collect_own_packages(state.target_dir, &state.own_packages)
+	state.own_symbols = filter_own(state.symbol_root, state.own_packages)
+	state.own_structs = filter_own(state.struct_root, state.own_packages)
+
+	reset_view(state)
 
 	fmt.printf(
 		"Loaded: %d packages / %d bytes symbol footprint, %d structs\n",
@@ -36,6 +39,21 @@ build_state :: proc(state: ^App_State) {
 		state.symbol_root.size,
 		len(state.struct_root.children),
 	)
+}
+
+// Top-level tree for the current view: the user's own packages unless
+// internals (core/base/vendor) were toggled on.
+view_root :: proc(state: ^App_State) -> ^Node {
+	if state.show_internals {
+		return state.show_structs ? state.struct_root : state.symbol_root
+	}
+	return state.show_structs ? state.own_structs : state.own_symbols
+}
+
+reset_view :: proc(state: ^App_State) {
+	clear(&state.nav_stack)
+	state.viewing_struct = nil
+	state.active_root = view_root(state)
 }
 
 zoom_out :: proc(state: ^App_State) {
@@ -52,9 +70,10 @@ handle_key :: proc(state: ^App_State, key: sdl.Keycode) {
 	switch key {
 	case sdl.K_TAB:
 		state.show_structs = !state.show_structs
-		clear(&state.nav_stack)
-		state.viewing_struct = nil
-		state.active_root = state.show_structs ? state.struct_root : state.symbol_root
+		reset_view(state)
+	case sdl.K_A:
+		state.show_internals = !state.show_internals
+		reset_view(state)
 	case sdl.K_R:
 		build_state(state)
 	case sdl.K_ESCAPE, sdl.K_BACKSPACE:
@@ -144,19 +163,20 @@ main :: proc() {
 		set_color(renderer, COL_BG)
 		sdl.RenderClear(renderer)
 
-		draw_header(renderer, &state, state.win_w)
+		header_h := draw_header(renderer, &state, state.win_w)
 
-		content_area := sdl.FRect{0, HEADER_HEIGHT, f32(state.win_w), f32(state.win_h) - HEADER_HEIGHT}
+		content_area := sdl.FRect{0, header_h, f32(state.win_w), f32(state.win_h) - header_h}
 
 		if state.viewing_struct != nil {
 			draw_struct_cache_grid(renderer, state.viewing_struct, content_area, mx, my)
 		} else if state.active_root != nil {
 			state.hovered = nil
-			if len(state.active_root.children) > 0 {
-				layout_treemap(state.active_root.children[:], content_area)
-				for child in state.active_root.children {
-					draw_treemap_node(renderer, child, 0, mx, my, &state.hovered)
-				}
+			at_top := len(state.nav_stack) == 0 && state.active_root == view_root(&state)
+			if state.show_internals && at_top {
+				own := state.show_structs ? state.own_structs : state.own_symbols
+				draw_split_overview(renderer, &state, state.active_root, own, content_area, mx, my)
+			} else {
+				draw_treemap(renderer, state.active_root.children[:], content_area, mx, my, &state.hovered)
 			}
 			if state.hovered != nil {
 				draw_tooltip(renderer, state.hovered, mx, my, state.win_w, state.win_h)

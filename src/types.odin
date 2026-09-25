@@ -24,6 +24,7 @@ Node :: struct {
 	pad_bytes:  u64,
 	cachelines: u32,
 	kind:       Node_Kind,
+	own:        bool, // declared under the target dir (vs core/base/vendor)
 	rect:       sdl.FRect,
 	children:   [dynamic]^Node,
 	fields:     [dynamic]Struct_Field,
@@ -34,6 +35,10 @@ App_State :: struct {
 	bin_path:     string,
 	symbol_root:  ^Node,
 	struct_root:  ^Node,
+	own_symbols:  ^Node, // symbol_root/struct_root narrowed to own_packages
+	own_structs:  ^Node,
+	own_packages: map[string]bool,
+	show_internals: bool,
 	active_root:  ^Node,
 	nav_stack:    [dynamic]^Node,
 	show_structs:   bool,

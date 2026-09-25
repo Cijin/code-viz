@@ -23,6 +23,14 @@ COL_FIELD_A   :: Color{60, 150, 210, 255}
 COL_FIELD_B   :: Color{70, 190, 140, 255}
 COL_PADDING   :: Color{225, 45, 50, 255}
 COL_SPLIT     :: Color{235, 195, 60, 255}
+COL_OWN_PKG   :: Color{20, 105, 95, 255}
+// The user's own code uses a green/teal family so "mine" reads at a glance;
+// kinds stay distinguishable within it.
+COL_OWN_CODE    :: Color{35, 150, 130, 255}
+COL_OWN_DATA_RW :: Color{125, 175, 60, 255}
+COL_OWN_DATA_RO :: Color{60, 165, 185, 255}
+COL_OWN_STRUCT  :: Color{45, 160, 110, 255}
+COL_MUTED     :: Color{62, 65, 74, 255}
 
 set_color :: proc(r: ^sdl.Renderer, c: Color) {
 	sdl.SetRenderDrawColor(r, c.r, c.g, c.b, c.a)
@@ -54,7 +62,28 @@ draw_text_scaled :: proc(r: ^sdl.Renderer, x, y: f32, text: string, scale: f32, 
 	sdl.SetRenderScale(r, 1, 1)
 }
 
+// Blends `c` toward a neutral grey so internals recede behind the user's code.
+mute :: proc(c: Color) -> Color {
+	mix :: proc(a, b: u8) -> u8 { return u8((u32(a) * 3 + u32(b) * 7) / 10) }
+	return Color{mix(c.r, COL_MUTED.r), mix(c.g, COL_MUTED.g), mix(c.b, COL_MUTED.b), c.a}
+}
+
 node_color :: proc(n: ^Node) -> Color {
+	if n.own {
+		#partial switch n.kind {
+		case .Package: return COL_OWN_PKG
+		case .Code:    return COL_OWN_CODE
+		case .Data_RW: return COL_OWN_DATA_RW
+		case .Data_RO: return COL_OWN_DATA_RO
+		case .Struct:  return COL_OWN_STRUCT
+		}
+	}
+	c := kind_color(n)
+	if n.kind != .Package && n.kind != .Root do return mute(c)
+	return c
+}
+
+kind_color :: proc(n: ^Node) -> Color {
 	switch n.kind {
 	case .Code:
 		return COL_CODE
@@ -90,18 +119,43 @@ kind_label :: proc(k: Node_Kind) -> string {
 	return ""
 }
 
-HEADER_HEIGHT :: f32(48)
 MAX_TREEMAP_DEPTH :: 5
+CHAR_W :: f32(8) // SDL debug font glyph width at scale 1
+LINE_H :: f32(16)
 
-draw_header :: proc(r: ^sdl.Renderer, state: ^App_State, win_w: i32) {
-	rect := sdl.FRect{0, 0, f32(win_w), HEADER_HEIGHT}
-	fill_rect(r, rect, COL_HEADER_BG)
-	draw_rect_outline(r, rect, COL_BORDER)
+// Truncates `text` so it fits in `max_px` of debug-font width.
+clip_text :: proc(text: string, max_px: f32) -> string {
+	max_chars := int(max_px / CHAR_W)
+	if max_chars <= 0 do return ""
+	if len(text) <= max_chars do return text
+	if max_chars <= 2 do return text[:max_chars]
+	return fmt.tprintf("%s..", text[:max_chars - 2])
+}
 
-	title := state.show_structs ? "Structs (DWARF) / Cache-Line View" : "Memory / Binary Footprint Treemap"
-	draw_text_scaled(r, 10, 6, title, 2.0, COL_TEXT)
+// Human-readable size of a view root: struct counts or kilobytes.
+scope_amount :: proc(state: ^App_State, size: u64, count: int) -> string {
+	if state.show_structs do return fmt.tprintf("%d structs", count)
+	return fmt.tprintf("%.1f KB", f32(size) / 1024)
+}
+
+// Draws the header, wrapping the key help and status onto their own lines
+// when the window is too narrow to share a line. Returns the height used.
+draw_header :: proc(r: ^sdl.Renderer, state: ^App_State, win_w: i32) -> f32 {
+	w := f32(win_w)
+	pad := f32(10)
+
+	title := state.show_structs ? "Structs / Cache-Line View" : "Binary Footprint"
+	help := "[Tab] view  [A] internals  [R] rebuild  [Click] in  [RMB/Esc] out"
+	title_w := f32(len(title)) * CHAR_W * 2
+	help_w := f32(len(help)) * CHAR_W
+	help_inline := pad + title_w + 3 * pad + help_w + pad <= w
 
 	crumbs := strings.builder_make(context.temp_allocator)
+	full := state.show_structs ? state.struct_root : state.symbol_root
+	own := state.show_structs ? state.own_structs : state.own_symbols
+	if full != nil && own != nil && !state.show_internals {
+		fmt.sbprintf(&crumbs, "your code: %s of %s  |  ", scope_amount(state, own.size, len(own.children)), scope_amount(state, full.size, len(full.children)))
+	}
 	strings.write_string(&crumbs, "path: ")
 	for n, i in state.nav_stack {
 		if i > 0 do strings.write_string(&crumbs, " > ")
@@ -113,14 +167,98 @@ draw_header :: proc(r: ^sdl.Renderer, state: ^App_State, win_w: i32) {
 		strings.write_string(&crumbs, " > ")
 		strings.write_string(&crumbs, state.viewing_struct.name)
 	}
-	draw_text(r, 10, 28, strings.to_string(crumbs), COL_TEXT_DIM)
+	crumb_text := strings.to_string(crumbs)
 
-	help := "[Tab] toggle view  [R] rebuild  [Click] zoom in  [Right-click/Esc/Backspace] zoom out"
-	help_w := f32(len(help)) * 8
-	draw_text(r, f32(win_w) - help_w - 10, 10, help, COL_TEXT_DIM)
+	status_w := f32(len(state.status_msg)) * CHAR_W
+	status_inline := state.status_msg == "" || pad + f32(len(crumb_text)) * CHAR_W + 3 * pad + status_w + pad <= w
 
-	if state.status_msg != "" {
-		draw_text(r, f32(win_w) - f32(len(state.status_msg)) * 8 - 10, 30, state.status_msg, COL_PADDING)
+	lines := 1 + (help_inline ? 0 : 1) + (status_inline ? 0 : 1)
+	height := 28 + f32(lines) * LINE_H + 4
+
+	rect := sdl.FRect{0, 0, w, height}
+	fill_rect(r, rect, COL_HEADER_BG)
+	draw_rect_outline(r, rect, COL_BORDER)
+
+	draw_text_scaled(r, pad, 6, clip_text(title, (w - 2 * pad) / 2) , 2.0, COL_TEXT)
+	y := f32(28)
+	if help_inline {
+		draw_text(r, w - help_w - pad, 10, help, COL_TEXT_DIM)
+	} else {
+		draw_text(r, pad, y, clip_text(help, w - 2 * pad), COL_TEXT_DIM)
+		y += LINE_H
+	}
+
+	if status_inline {
+		crumb_max := w - 2 * pad
+		if state.status_msg != "" {
+			crumb_max -= status_w + 3 * pad
+			draw_text(r, w - status_w - pad, y, state.status_msg, COL_PADDING)
+		}
+		draw_text(r, pad, y, clip_text(crumb_text, crumb_max), COL_TEXT_DIM)
+	} else {
+		draw_text(r, pad, y, clip_text(crumb_text, w - 2 * pad), COL_TEXT_DIM)
+		y += LINE_H
+		draw_text(r, pad, y, clip_text(state.status_msg, w - 2 * pad), COL_PADDING)
+	}
+
+	return height
+}
+
+draw_treemap :: proc(r: ^sdl.Renderer, nodes: []^Node, area: sdl.FRect, mx, my: f32, hovered: ^^Node) {
+	if len(nodes) == 0 || area.w <= 0 || area.h <= 0 do return
+	layout_treemap(nodes, area)
+	for n in nodes do draw_treemap_node(r, n, 0, mx, my, hovered)
+}
+
+// Top level with internals shown: the user's code and the internals each get
+// their own pane at independent scale (the user's code is often ~10% of the
+// binary and would be a sliver otherwise). A share bar keeps the real
+// proportion visible.
+draw_split_overview :: proc(r: ^sdl.Renderer, state: ^App_State, full, own: ^Node, area: sdl.FRect, mx, my: f32) {
+	others := make([dynamic]^Node, context.temp_allocator)
+	other_size: u64 = 0
+	for n in full.children do if !n.own {
+		append(&others, n)
+		other_size += n.size
+	}
+
+	// Share bar
+	bar := sdl.FRect{area.x, area.y, area.w, LINE_H + 4}
+	frac := full.size > 0 ? f32(own.size) / f32(full.size) : 0
+	fill_rect(r, bar, COL_MUTED)
+	fill_rect(r, sdl.FRect{bar.x, bar.y, max(bar.w * frac, 2), bar.h}, COL_OWN_CODE)
+	share := fmt.tprintf("your code %s (%.1f%%)  |  internals %s", scope_amount(state, own.size, len(own.children)),
+		frac * 100, scope_amount(state, other_size, len(others)))
+	draw_text(r, bar.x + 6, bar.y + 6, clip_text(share, bar.w - 12), COL_TEXT)
+
+	body := sdl.FRect{area.x, area.y + bar.h + 4, area.w, area.h - bar.h - 4}
+	gap := f32(6)
+	own_pane, other_pane: sdl.FRect
+	if body.w >= body.h {
+		half := (body.w - gap) / 2
+		own_pane = {body.x, body.y, half, body.h}
+		other_pane = {body.x + half + gap, body.y, half, body.h}
+	} else {
+		half := (body.h - gap) / 2
+		own_pane = {body.x, body.y, body.w, half}
+		other_pane = {body.x, body.y + half + gap, body.w, half}
+	}
+
+	panes := [2]struct {
+		rect:  sdl.FRect,
+		title: string,
+		col:   Color,
+		nodes: []^Node,
+	}{
+		{own_pane, "YOUR CODE", COL_OWN_PKG, own.children[:]},
+		{other_pane, "INTERNALS (core / base / vendor)", COL_PACKAGE, others[:]},
+	}
+	for p in panes {
+		title_bar := sdl.FRect{p.rect.x, p.rect.y, p.rect.w, LINE_H + 2}
+		fill_rect(r, title_bar, p.col)
+		draw_text(r, p.rect.x + 4, p.rect.y + 5, clip_text(p.title, p.rect.w - 8), COL_TEXT)
+		inner := sdl.FRect{p.rect.x, p.rect.y + title_bar.h, p.rect.w, p.rect.h - title_bar.h}
+		draw_treemap(r, p.nodes, inner, mx, my, &state.hovered)
 	}
 }
 
@@ -149,12 +287,8 @@ draw_treemap_node :: proc(r: ^sdl.Renderer, n: ^Node, depth: int, mx, my: f32, h
 	draw_rect_outline(r, rect, COL_BORDER)
 
 	if rect.w > 34 && rect.h > 14 {
-		label := n.name
-		max_chars := int(rect.w / 8) - 1
-		if max_chars > 0 && len(label) > max_chars {
-			label = label[:max_chars]
-		}
-		draw_text(r, rect.x + 3, rect.y + 3, label, COL_TEXT)
+		label := clip_text(n.name, rect.w - 6)
+		draw_text(r, rect.x + 3, rect.y + 3, label, n.own ? COL_TEXT : COL_TEXT_DIM)
 	}
 
 	if depth >= MAX_TREEMAP_DEPTH do return
@@ -251,7 +385,7 @@ draw_tooltip :: proc(r: ^sdl.Renderer, n: ^Node, mx, my: f32, win_w, win_h: i32)
 
 	lines := make([dynamic]string, context.temp_allocator)
 	append(&lines, n.name)
-	append(&lines, fmt.tprintf("Kind: %s", kind_label(n.kind)))
+	append(&lines, fmt.tprintf("Kind: %s%s", kind_label(n.kind), n.own ? " (your code)" : " (internal)"))
 	append(&lines, fmt.tprintf("Size: %d B (%.2f KB)", n.size, f32(n.size) / 1024))
 
 	if n.kind == .Struct {
