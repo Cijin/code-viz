@@ -57,6 +57,13 @@ run_tool :: proc(argv: []string, allocator := context.allocator) -> (out: string
 	return string(stdout), true
 }
 
+// Runs a command capturing stdout and stderr in the temp allocator,
+// whatever the exit code.
+os_process_exec :: proc(argv: []string) -> (state: os.Process_State, stdout, stderr: []byte, failed: bool) {
+	st, out, errb, err := os.process_exec({command = argv}, context.temp_allocator)
+	return st, out, errb, err != nil
+}
+
 // Where the DWARF for `artifact` lives: macOS keeps it in the .dSYM bundle
 // (docs/VERIFIED.md §2); ELF keeps it in the binary.
 dwarf_path :: proc(artifact: string, allocator := context.allocator) -> string {

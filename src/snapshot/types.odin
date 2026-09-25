@@ -32,6 +32,7 @@ Proc_Code :: struct {
 	pos:         Source_Pos, // declaration (from DWARF)
 	return_type: string,
 	return_size: int, // bytes; 0 when the proc returns nothing
+	stack:       int, // frame bytes from the prologue
 }
 
 Field :: struct {
@@ -99,4 +100,5 @@ Snapshot :: struct {
 	opt_outs: []Opt_Out,
 	scenario: Maybe(Scenario_Result),
 	source:   map[string][]string, // file -> lines, for the line mapping (§7.1)
+	vet:      []Vet_Finding,       // T1; filled after the green event
 }

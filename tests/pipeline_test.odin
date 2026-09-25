@@ -113,6 +113,10 @@ edit_triggers_one_build_test :: proc(t: ^testing.T) {
 	testing.expect_value(t, mem_delta, 8)
 	testing.expect_value(t, started, 1)
 	testing.expect(t, second > first)
+	// The only follow-up is the build's T1 vet result; no second build.
+	vet_id, _, got_vet := wait_for(&p, .Vet_Ready, 30 * time.Second)
+	testing.expect(t, got_vet)
+	testing.expect_value(t, vet_id, second)
 	_, extra := next_event(&p, 800 * time.Millisecond)
 	testing.expect(t, !extra)
 

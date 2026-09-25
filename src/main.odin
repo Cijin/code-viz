@@ -20,6 +20,7 @@ App :: struct {
 	status:          snap.Build_Status,
 	// The newest delta; a failed build never replaces it.
 	delta:           ^pipeline.Owned_Delta,
+	vet:             ^pipeline.Owned_Vet, // T1 result merged into `delta`
 	history:         [dynamic]snap.Build_Dots,
 	glance:          snap.Glance,
 	glance_arena:    virtual.Arena,
@@ -43,7 +44,7 @@ rebuild_glance :: proc() {
 		return
 	}
 	virtual.arena_free_all(&app.glance_arena)
-	app.glance = snap.build_glance(&app.delta.delta, &app.history, virtual.arena_allocator(&app.glance_arena))
+	app.glance = snap.build_glance(&app.delta.delta, app.history[:], virtual.arena_allocator(&app.glance_arena))
 	app.glance.status = app.status
 }
 
@@ -62,10 +63,27 @@ drain_pipeline :: proc() -> (redraw: bool) {
 			fmt.eprintf("substrate: build %d failed\n%s", ev.id, ev.output)
 		case .Build_Green:
 			pipeline.delta_free(app.delta)
+			pipeline.vet_free(app.vet)
+			app.vet = nil
 			app.delta = ev.delta
 			ev.delta = nil
 			app.status = .Ok
 			green = true
+			// One set of history dots per green build (not per redraw).
+			if app.delta.from != app.delta.to {
+				rebuild_glance()
+				snap.record_build(&app.history, app.glance)
+			}
+		case .Vet_Ready:
+			if app.delta != nil && app.delta.to == ev.id {
+				pipeline.vet_free(app.vet)
+				app.vet = ev.vet
+				ev.vet = nil
+				app.delta.safety.vet_total = app.vet.total
+				app.delta.safety.vet_new = app.vet.new
+				app.delta.safety.vet_ready = true
+				green = true
+			}
 		}
 		pipeline.event_free(&ev)
 	}
@@ -100,7 +118,9 @@ render_win :: proc(win: ^Win) {
 			draw_memory_lens(win, d, &win.hits)
 		case .Execution:
 			draw_execution_lens(win, d, &win.hits)
-		case .Blocks, .Safety:
+		case .Safety:
+			draw_safety_lens(win, d)
+		case .Blocks:
 			y := draw_lens_top(win, u32(d.from), u32(d.to), "")
 			draw_lens_empty(win, y, "No data")
 		}
@@ -250,6 +270,7 @@ main :: proc() {
 	defer if app.pipe_running {
 		pipeline.stop(&app.pipe)
 		pipeline.delta_free(app.delta)
+		pipeline.vet_free(app.vet)
 	}
 
 	render_all()

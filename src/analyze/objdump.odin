@@ -108,10 +108,11 @@ parse_objdump :: proc(text, root: string, arch: Arch, allocator := context.alloc
 
 	finish :: proc(out: ^map[string]Disasm_Proc, b: ^Building, arch: Arch, allocator := context.allocator) {
 		mark_cold(b.insns[:], b.addrs[:])
+		stack := frame_size(b.insns[:])
 		size := 0
 		if n := len(b.addrs); n > 0 do size = int(b.addrs[n - 1] - b.addrs[0]) + (arch == .Arm64 ? 4 : 1)
 		out[b.symbol] = Disasm_Proc{
-			code   = snap.Proc_Code{symbol = b.symbol, size = size, insns = b.insns[:]},
+			code   = snap.Proc_Code{symbol = b.symbol, size = size, insns = b.insns[:], stack = stack},
 			calls  = b.calls[:],
 			checks = b.checks[:],
 		}
@@ -177,6 +178,20 @@ parse_objdump :: proc(text, root: string, arch: Arch, allocator := context.alloc
 	}
 	if b, ok := &cur.?; ok do finish(&out, b, arch, allocator)
 	return out
+}
+
+// Stack frame bytes from the prologue: `sub sp, sp, #0x80` (arm64) or
+// `sub rsp, 0x80` (x86-64) among the first few instructions.
+frame_size :: proc(insns: []snap.Insn) -> int {
+	for insn in insns[:min(len(insns), 8)] {
+		t := insn.text
+		if !strings.has_prefix(t, "sub") do continue
+		if !strings.contains(t, "sp, sp,") && !strings.contains(t, "rsp,") do continue
+		i := strings.last_index(t, "0x")
+		if i < 0 do continue
+		if v, ok := strconv.parse_u64(t[i + 2:], 16); ok do return int(v)
+	}
+	return 0
 }
 
 // SPEC §6.2 cold code: a basic block that ends in a call to a check handler

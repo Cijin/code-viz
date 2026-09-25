@@ -108,11 +108,32 @@ run_build :: proc(p: ^Pipeline) {
 	// SPEC §9: log the budget timings; never show them in the UI.
 	fmt.eprintf("substrate: build %d analyzed in %.1f ms\n", id, time.duration_milliseconds(time.tick_since(t0)))
 
-	snapshot_free(p.prev)
-	p.prev = s
+	prev_vet := p.prev != nil ? p.prev.vet : nil
 	keep_green(p, id)
 	sync.atomic_store(&p.last_green, id)
 	emit(p, Event{kind = .Build_Green, id = id, delta = d})
+
+	// T1: vet runs after the glance data is out (SPEC §6.7). New findings
+	// are those the previous build did not report.
+	vet := new(Owned_Vet, shared_allocator())
+	if virtual.arena_init_growing(&vet.arena) == nil {
+		t1 := time.tick_now()
+		{
+			context.allocator = virtual.arena_allocator(&s.arena)
+			s.vet, _ = analyze.run_vet(p.project_dir)
+		}
+		{
+			context.allocator = virtual.arena_allocator(&vet.arena)
+			vet.total = len(s.vet)
+			vet.new = snap.new_vet_findings(prev_vet, s.vet)
+		}
+		fmt.eprintf("substrate: build %d vet in %.1f ms\n", id, time.duration_milliseconds(time.tick_since(t1)))
+		emit(p, Event{kind = .Vet_Ready, id = id, vet = vet})
+	} else {
+		free(vet, shared_allocator())
+	}
+	snapshot_free(p.prev)
+	p.prev = s
 }
 
 // Analyzer stage (SPEC §6). Runs with context.allocator set to the
@@ -146,7 +167,14 @@ run_analyzers :: proc(p: ^Pipeline, s: ^Owned_Snapshot) {
 		s.procs[sym] = pc
 		append(&checks, ..dp.checks)
 	}
+
+	// SPEC §6.4/§6.5: implied checks and opt-outs from the source.
+	ast := analyze.analyze_source(s.source)
+	emitted := make(map[string]bool, allocator = context.temp_allocator)
+	for sym in s.procs do emitted[sym] = true
+	append(&checks, ..analyze.removed_checks(ast.implied, checks[:], emitted))
 	s.checks = checks[:]
+	s.opt_outs = ast.opt_outs
 }
 
 // Package names declared by the project's files (`package X`).

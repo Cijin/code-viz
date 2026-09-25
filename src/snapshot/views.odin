@@ -83,6 +83,12 @@ Safety_Lane :: struct {
 	asan_total:  int, // 0 when no sanitizer run
 }
 
+// A signal that changed (e.g. "+48 B stack"), shown beside the quiet chips.
+Signal_Chip :: struct {
+	delta: int,
+	label: string,
+}
+
 Glance :: struct {
 	status:    Build_Status,
 	from, to:  Build_Id,
@@ -90,5 +96,6 @@ Glance :: struct {
 	memory:    Memory_Lane,
 	safety:    Safety_Lane,
 	quiet:     []string, // signals with no change: stack, heap, opt-out, vet
+	loud:      []Signal_Chip,
 	builds:    []Build_Dots, // last 16 green builds, oldest first
 }

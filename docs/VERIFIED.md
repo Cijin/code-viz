@@ -79,3 +79,11 @@ v213 → v214 `parse_header`, per line (old → new instruction count):
 The largest additions are on `flags` and `return`, as `expected.md` says. The small ones are real, not noise. For example, the entry line now stores `x8`, the hidden result pointer that the 24 B return needs (item 6). The M3 test therefore asserts that `flags` and `return` are the two lines with the most new instructions and hold at least 70% of them.
 
 Per-line matching uses the longest common subsequence of instruction kinds ("by kind, in order"). A greedy first match counted reordered spills as removed plus new.
+
+## M4 notes: check sites, removed checks, opt-outs
+
+- **Check sites** are the calls to `_runtime::bounds_check_error` / `slice_expr_error_*` in the `-o:minimal` build, attributed to the line of the call. `parse_header`: v213 = 3, v214 = 4, and the new one is on line 27 (`flags`), as `expected.md` says. Opt-outs stay 0 → 0.
+- **Removed checks** come from `core:odin/parser`. Each index or slice expression implies a check. One with no check call on its line in an emitted proc is `removed`. The parser has no type information, so map lookups and compile-time-checked constant indices also show as removed. Procs with no code in the binary are skipped.
+- **Opt-outs** are `#no_bounds_check` (procedure tag or statement), `transmute`, a written `[^]T` type, and `cast(^T)` / `(^T)(x)`. The last is reported as a raw pointer cast because the operand's type is unknown.
+- **The Safety lens leaves out** the mockup's "fix" column and the "can wrap" value. A verified check-removing rewrite needs the optimizer to prove the bounds, and at `-o:minimal` it does not. No analyzer for wrapping arithmetic is specified. Both show as absent instead of made-up numbers.
+- **Vet** (`odin check -vet -no-entry-point`) runs as T1 after the green event, about 55 ms on the fixture. Only findings the previous build did not report are new.

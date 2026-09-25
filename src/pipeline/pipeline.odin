@@ -17,7 +17,8 @@ import snap "../snapshot"
 Event_Kind :: enum u8 {
 	Build_Started,
 	Build_Failed,  // the view keeps the last green snapshot
-	Build_Green,   // snapshot attached
+	Build_Green,   // delta attached
+	Vet_Ready,     // T1 vet result for build `id`
 }
 
 Event :: struct {
@@ -25,6 +26,19 @@ Event :: struct {
 	id:     snap.Build_Id,
 	output: string,       // compiler output for failed builds (heap-owned)
 	delta:  ^Owned_Delta, // for Build_Green; the receiver owns it
+	vet:    ^Owned_Vet,   // for Vet_Ready; the receiver owns it
+}
+
+Owned_Vet :: struct {
+	total: int,
+	new:   []snap.Vet_Finding,
+	arena: virtual.Arena,
+}
+
+vet_free :: proc(v: ^Owned_Vet) {
+	if v == nil do return
+	virtual.arena_destroy(&v.arena)
+	free(v, shared_allocator())
 }
 
 // A snapshot and the arena that holds everything it points to. Snapshots
@@ -156,6 +170,7 @@ poll :: proc(p: ^Pipeline) -> (ev: Event, ok: bool) {
 event_free :: proc(ev: ^Event) {
 	delete(ev.output, shared_allocator())
 	delta_free(ev.delta)
+	vet_free(ev.vet)
 	ev^ = {}
 }
 

@@ -161,7 +161,9 @@ glance_memory_lane_test :: proc(t: ^testing.T) {
 	curr := snap.Snapshot{id = 214, types = parse_sample(SAMPLE_DWARF_V214)}
 	d := snap.diff(&prev, &curr, context.temp_allocator)
 	history := make([dynamic]snap.Build_Dots, context.temp_allocator)
-	m := snap.build_glance(&d, &history, context.temp_allocator)
+	m := snap.build_glance(&d, history[:], context.temp_allocator)
+	snap.record_build(&history, m)
+	m.builds = history[:]
 	testing.expect(t, m.memory.changed)
 	testing.expect_value(t, m.memory.symbol, "Frame_Header")
 	testing.expect_value(t, m.memory.delta, 8)

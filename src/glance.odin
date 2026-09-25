@@ -237,9 +237,12 @@ draw_safety_lane :: proc(l: ^snap.Safety_Lane, r: Rect) {
 	draw_lane_delta(format_delta(l.delta), l.delta, inner_x, cy)
 	x := inner_x + LANE_DELTA_COL + LANE_DELTA_GAP
 	x += draw_rings(l.now, x, cy) + LANE_DELTA_GAP
-	arrow(x, cy, 26, GAIN)
-	x += 26 + LANE_DELTA_GAP
-	draw_rings(l.after_fix, x, cy)
+	// The "after fix" rings only appear when a verified fix exists.
+	if len(l.after_fix) > 0 {
+		arrow(x, cy, 26, GAIN)
+		x += 26 + LANE_DELTA_GAP
+		draw_rings(l.after_fix, x, cy)
+	}
 	y += DELTA_ROW_MIN
 
 	if l.asan_total == 0 do return
@@ -254,11 +257,21 @@ draw_safety_lane :: proc(l: ^snap.Safety_Lane, r: Rect) {
 	draw_text(.Mono_Regular, 11, fmt.tprintf("%d/%d", l.asan_done, l.asan_total), bar.x + bar.w + 8, cy, TEXT_3)
 }
 
-// "No change" chips for the quiet signals (`.eq`).
+// "No change" chips for the quiet signals (`.eq`), then the signals that
+// changed with their delta.
 @(private = "file")
-draw_quiet_chips :: proc(quiet: []string, x, y: f32) -> f32 {
+draw_quiet_chips :: proc(quiet: []string, loud: []snap.Signal_Chip, x, y: f32) -> f32 {
 	h := LINE_H_11 + 8
 	cx := x
+	for l in loud {
+		label := fmt.tprintf("%s %s", format_delta(l.delta), l.label)
+		tw, _ := text_size(.Mono_Regular, 11, label)
+		chip := Rect{cx, y, tw + 16, h}
+		fill_rrect(chip, 4, BG_LANE)
+		stroke_rrect(chip, 4, 1, delta_color(l.delta))
+		draw_text(.Mono_Regular, 11, label, cx + 8, y + h / 2, delta_color(l.delta))
+		cx += chip.w + 8
+	}
 	for q in quiet {
 		label := fmt.tprintf("= %s", q)
 		tw, _ := text_size(.Mono_Regular, 11, label)
@@ -357,6 +370,6 @@ draw_glance :: proc(m: ^snap.Glance, w, h: f32, mx, my: f32, hits: ^[dynamic]Hit
 	}
 
 	// The chip row is the next stacked item (gap already added), padded 4 6 0.
-	draw_quiet_chips(m.quiet, x + 6, y + 4)
+	draw_quiet_chips(m.quiet, m.loud, x + 6, y + 4)
 	draw_glance_footer(m, w, h)
 }

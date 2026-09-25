@@ -12,6 +12,7 @@ Delta :: struct {
 	types:    []Type_Delta,
 	procs:    []Proc_Delta, // changed first
 	inline:   []Inline_Change,
+	safety:   Safety_Delta,
 }
 
 clone_layout :: proc(t: Type_Layout, allocator := context.allocator) -> Type_Layout {
@@ -65,6 +66,7 @@ diff :: proc(prev, curr: ^Snapshot, allocator := context.allocator) -> Delta {
 	d.types = types[:]
 	d.procs = diff_procs(prev, curr, allocator)
 	d.inline = diff_inlining(prev, curr, allocator)
+	d.safety = diff_safety(prev, curr, allocator)
 	return d
 }
 
@@ -73,9 +75,9 @@ dot_for :: proc(v: int) -> Dot {
 	return v > 0 ? .Cost : (v < 0 ? .Gain : .Neutral)
 }
 
-// Builds the glance view model. `history` holds the dots of earlier green
-// builds (oldest first) and is appended to.
-build_glance :: proc(d: ^Delta, history: ^[dynamic]Build_Dots, allocator := context.allocator) -> Glance {
+// Builds the glance view model. `history` holds the build dots of the last
+// green builds (oldest first); see record_build.
+build_glance :: proc(d: ^Delta, history: []Build_Dots, allocator := context.allocator) -> Glance {
 	g := Glance{status = .Ok, from = d.from, to = d.to}
 
 	if len(d.types) > 0 {
@@ -107,15 +109,43 @@ build_glance :: proc(d: ^Delta, history: ^[dynamic]Build_Dots, allocator := cont
 		}
 	}
 
+	if len(d.safety.procs) > 0 && d.safety.procs[0].changed {
+		ps := d.safety.procs[0]
+		g.safety.changed = true
+		g.safety.symbol = short_name(ps.symbol)
+		g.safety.delta = ps.new_active - ps.old_active
+		rings := make([dynamic]Glyph_Item, allocator)
+		for l in ps.lines do for r in l.checks do if r.glyph == .Check do append(&rings, r)
+		g.safety.now = rings[:]
+	}
+
+	// Quiet signals (no change) become "=" chips; changed ones carry a delta.
 	quiet := make([dynamic]string, allocator)
-	append(&quiet, "stack", "heap", "opt-out", "vet")
+	if d.safety.stack_delta == 0 do append(&quiet, "stack")
+	else do g.loud = append_loud(g.loud, d.safety.stack_delta, "B stack", allocator)
+	append(&quiet, "heap")
+	if d.safety.opt_outs_new == d.safety.opt_outs_old do append(&quiet, "opt-out")
+	else do g.loud = append_loud(g.loud, d.safety.opt_outs_new - d.safety.opt_outs_old, "opt-out", allocator)
+	if !d.safety.vet_ready || len(d.safety.vet_new) == 0 do append(&quiet, "vet")
+	else do g.loud = append_loud(g.loud, len(d.safety.vet_new), "vet", allocator)
 	g.quiet = quiet[:]
 
-	if d.from != d.to {
-		for &b in history do b.current = false
-		append(history, Build_Dots{e = dot_for(g.exec.delta), m = dot_for(g.memory.delta), s = .Neutral, current = true})
-		for len(history) > 16 do ordered_remove(history, 0)
-	}
-	g.builds = history[:]
+	g.builds = history
 	return g
+}
+
+// Appends one build's E/M/S dots to the history (last 16 kept). Call once
+// per green build, after build_glance.
+record_build :: proc(history: ^[dynamic]Build_Dots, g: Glance) {
+	for &b in history do b.current = false
+	append(history, Build_Dots{e = dot_for(g.exec.delta), m = dot_for(g.memory.delta), s = dot_for(g.safety.delta), current = true})
+	for len(history) > 16 do ordered_remove(history, 0)
+}
+
+@(private = "file")
+append_loud :: proc(list: []Signal_Chip, delta: int, label: string, allocator := context.allocator) -> []Signal_Chip {
+	out := make([dynamic]Signal_Chip, allocator)
+	append(&out, ..list)
+	append(&out, Signal_Chip{delta = delta, label = label})
+	return out[:]
 }

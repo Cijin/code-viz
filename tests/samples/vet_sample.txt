@@ -1,0 +1,9 @@
+/project/a.odin(2:8) Error: 'fmt' declared but not used 
+	import "core:fmt" 
+	       ^ 
+/project/a.odin(3:8) Error: 'os' declared but not used 
+	import "core:os" 
+	       ^ 
+/project/a.odin(4:22) Error: 'x' declared but not used 
+	f :: proc() -> int { x := 1; return 2 } 
+	                     ^ 
