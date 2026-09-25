@@ -21,17 +21,24 @@ Event_Kind :: enum u8 {
 }
 
 Event :: struct {
-	kind:     Event_Kind,
-	id:       snap.Build_Id,
-	output:   string,         // compiler output for failed builds (heap-owned)
-	snapshot: ^Owned_Snapshot, // for Build_Green; the receiver owns it
+	kind:   Event_Kind,
+	id:     snap.Build_Id,
+	output: string,       // compiler output for failed builds (heap-owned)
+	delta:  ^Owned_Delta, // for Build_Green; the receiver owns it
 }
 
-// A snapshot and the arena that holds everything it points to.
+// A snapshot and the arena that holds everything it points to. Snapshots
+// stay on the builder thread; the UI only ever sees deltas.
 Owned_Snapshot :: struct {
 	using snap: snap.Snapshot,
 	arena:      virtual.Arena,
 	artifact:   string, // path of the analyzed binary
+}
+
+// A self-contained delta (see snapshot/delta.odin) and its arena.
+Owned_Delta :: struct {
+	using delta: snap.Delta,
+	arena:       virtual.Arena,
 }
 
 Build_Request :: struct {
@@ -50,6 +57,7 @@ Pipeline :: struct {
 	next_id:     snap.Build_Id,
 	green:       [dynamic]snap.Build_Id, // kept build dirs, oldest first
 	last_green:  snap.Build_Id,          // atomic; 0 before the first green build
+	prev:        ^Owned_Snapshot,        // builder thread only: last green snapshot
 }
 
 // Everything that crosses threads (events, snapshots, pipeline state) uses
@@ -131,6 +139,7 @@ stop :: proc(p: ^Pipeline) {
 	}
 	chan.destroy(p.events)
 	chan.destroy(p.requests)
+	snapshot_free(p.prev)
 
 	context.allocator = shared_allocator()
 	delete(p.project_dir)
@@ -146,8 +155,14 @@ poll :: proc(p: ^Pipeline) -> (ev: Event, ok: bool) {
 
 event_free :: proc(ev: ^Event) {
 	delete(ev.output, shared_allocator())
-	if ev.snapshot != nil do snapshot_free(ev.snapshot)
+	delta_free(ev.delta)
 	ev^ = {}
+}
+
+delta_free :: proc(d: ^Owned_Delta) {
+	if d == nil do return
+	virtual.arena_destroy(&d.arena)
+	free(d, shared_allocator())
 }
 
 snapshot_free :: proc(s: ^Owned_Snapshot) {

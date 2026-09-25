@@ -8,6 +8,8 @@ import snap "snapshot"
 
 Action :: enum u8 {
 	None,
+	Open_Glance,
+	Apply_Fix,
 	Open_Blocks,
 	Open_Execution,
 	Open_Memory,
@@ -50,7 +52,7 @@ draw_glance_header :: proc(m: ^snap.Glance, w: f32, hits: ^[dynamic]Hit) {
 	cy := HEADER_H / 2
 	draw_tracked(.Mono_SemiBold, 13, 0.08, "SUBSTRATE", 16, cy, TEXT)
 
-	label := fmt.tprintf("%d → %d · blocks", m.from, m.to)
+	label := m.to == 0 ? "blocks" : fmt.tprintf("%d → %d · blocks", m.from, m.to)
 	tw, _ := text_size(.Mono_Regular, 12, label)
 	chip := Rect{0, 0, 10 + 8 + 8 + tw + 10, 28}
 	chip.x = w - 16 - chip.w

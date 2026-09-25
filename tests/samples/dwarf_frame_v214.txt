@@ -1,0 +1,62 @@
+0x0000000b: DW_TAG_compile_unit
+              DW_AT_name	("frame.odin")
+
+0x00010e34:   DW_TAG_structure_type
+                DW_AT_name	("frame::Frame_Header")
+                DW_AT_byte_size	(0x18)
+                DW_AT_decl_file	("/project/frame.odin")
+                DW_AT_decl_line	(12)
+                DW_AT_alignment	(8)
+
+0x00010e3d:     DW_TAG_member
+                  DW_AT_name	("kind")
+                  DW_AT_type	(0x0000d312 "u8")
+                  DW_AT_alignment	(1)
+                  DW_AT_data_member_location	(DW_OP_plus_uconst 0x0)
+
+0x00010e4a:     DW_TAG_member
+                  DW_AT_name	("length")
+                  DW_AT_type	(0x0000d3e9 "u32")
+                  DW_AT_alignment	(4)
+                  DW_AT_data_member_location	(DW_OP_plus_uconst 0x4)
+
+0x00010e57:     DW_TAG_member
+                  DW_AT_name	("flags")
+                  DW_AT_type	(0x0000d312 "u8")
+                  DW_AT_alignment	(1)
+                  DW_AT_data_member_location	(DW_OP_plus_uconst 0x8)
+
+0x00010e64:     DW_TAG_member
+                  DW_AT_name	("stream_id")
+                  DW_AT_type	(0x0000d2c3 "u64")
+                  DW_AT_alignment	(8)
+                  DW_AT_data_member_location	(DW_OP_plus_uconst 0x10)
+
+0x00010e71:     NULL
+
+0x0000d312:   DW_TAG_typedef
+                DW_AT_type	(0x0000d31b "u8")
+                DW_AT_name	("u8")
+
+0x0000d3e9:   DW_TAG_typedef
+                DW_AT_type	(0x0000d3f2 "u32")
+                DW_AT_name	("u32")
+
+0x0000d2c3:   DW_TAG_typedef
+                DW_AT_type	(0x0000d2cc "u64")
+                DW_AT_name	("u64")
+
+0x0000d31b:   DW_TAG_base_type
+                DW_AT_name	("u8")
+                DW_AT_encoding	(DW_ATE_unsigned)
+                DW_AT_byte_size	(0x01)
+
+0x0000d3f2:   DW_TAG_base_type
+                DW_AT_name	("u32")
+                DW_AT_encoding	(DW_ATE_unsigned)
+                DW_AT_byte_size	(0x04)
+
+0x0000d2cc:   DW_TAG_base_type
+                DW_AT_name	("u64")
+                DW_AT_encoding	(DW_ATE_unsigned)
+                DW_AT_byte_size	(0x08)

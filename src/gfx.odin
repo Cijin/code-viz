@@ -27,7 +27,8 @@ Gfx :: struct {
 	path_b:   [dynamic]sdl.FPoint,
 }
 
-g: Gfx
+// The window being drawn; set before each window's frame.
+g: ^Gfx
 
 px :: #force_inline proc(v: f32) -> f32 {
 	return v * g.scale

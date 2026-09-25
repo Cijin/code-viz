@@ -1,0 +1,56 @@
+0x0000000b: DW_TAG_compile_unit
+              DW_AT_name	("frame.odin")
+
+0x0001251a:   DW_TAG_structure_type
+                DW_AT_name	("frame::Frame_Header")
+                DW_AT_byte_size	(0x10)
+                DW_AT_decl_file	("/project/frame.odin")
+                DW_AT_decl_line	(11)
+                DW_AT_alignment	(8)
+
+0x00012523:     DW_TAG_member
+                  DW_AT_name	("kind")
+                  DW_AT_type	(0x0000e9f8 "u8")
+                  DW_AT_alignment	(1)
+                  DW_AT_data_member_location	(DW_OP_plus_uconst 0x0)
+
+0x00012530:     DW_TAG_member
+                  DW_AT_name	("length")
+                  DW_AT_type	(0x0000eacf "u32")
+                  DW_AT_alignment	(4)
+                  DW_AT_data_member_location	(DW_OP_plus_uconst 0x4)
+
+0x0001253d:     DW_TAG_member
+                  DW_AT_name	("stream_id")
+                  DW_AT_type	(0x0000e9a9 "u64")
+                  DW_AT_alignment	(8)
+                  DW_AT_data_member_location	(DW_OP_plus_uconst 0x8)
+
+0x0001254a:     NULL
+
+0x0000e9f8:   DW_TAG_typedef
+                DW_AT_type	(0x0000ea01 "u8")
+                DW_AT_name	("u8")
+
+0x0000eacf:   DW_TAG_typedef
+                DW_AT_type	(0x0000ead8 "u32")
+                DW_AT_name	("u32")
+
+0x0000e9a9:   DW_TAG_typedef
+                DW_AT_type	(0x0000e9b2 "u64")
+                DW_AT_name	("u64")
+
+0x0000ea01:   DW_TAG_base_type
+                DW_AT_name	("u8")
+                DW_AT_encoding	(DW_ATE_unsigned)
+                DW_AT_byte_size	(0x01)
+
+0x0000ead8:   DW_TAG_base_type
+                DW_AT_name	("u32")
+                DW_AT_encoding	(DW_ATE_unsigned)
+                DW_AT_byte_size	(0x04)
+
+0x0000e9b2:   DW_TAG_base_type
+                DW_AT_name	("u64")
+                DW_AT_encoding	(DW_ATE_unsigned)
+                DW_AT_byte_size	(0x08)

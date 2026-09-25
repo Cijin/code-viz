@@ -2,6 +2,8 @@ package pipeline
 
 import "core:fmt"
 import "core:mem/virtual"
+import "core:time"
+import "../analyze"
 import "core:os"
 import "core:strconv"
 import "core:strings"
@@ -85,23 +87,44 @@ run_build :: proc(p: ^Pipeline) {
 		free(s, shared_allocator())
 		return
 	}
+	t0 := time.tick_now()
 	{
 		context.allocator = virtual.arena_allocator(&s.arena)
 		s.id = id
 		s.artifact = strings.clone(artifact)
-		analyze(p, s)
+		run_analyzers(p, s)
 	}
 
+	d := new(Owned_Delta, shared_allocator())
+	if virtual.arena_init_growing(&d.arena) != nil {
+		free(d, shared_allocator())
+		snapshot_free(s)
+		return
+	}
+	{
+		context.allocator = virtual.arena_allocator(&d.arena)
+		d.delta = snap.diff(p.prev != nil ? &p.prev.snap : nil, &s.snap)
+	}
+	// SPEC §9: log the budget timings; never show them in the UI.
+	fmt.eprintf("substrate: build %d analyzed in %.1f ms\n", id, time.duration_milliseconds(time.tick_since(t0)))
+
+	snapshot_free(p.prev)
+	p.prev = s
 	keep_green(p, id)
 	sync.atomic_store(&p.last_green, id)
-	emit(p, Event{kind = .Build_Green, id = id, snapshot = s})
+	emit(p, Event{kind = .Build_Green, id = id, delta = d})
 }
 
 // Analyzer stage (SPEC §6). Runs with context.allocator set to the
-// snapshot's arena. Later milestones add analyzers here.
+// snapshot's arena.
 @(private)
-analyze :: proc(p: ^Pipeline, s: ^Owned_Snapshot) {
+run_analyzers :: proc(p: ^Pipeline, s: ^Owned_Snapshot) {
 	s.source = read_sources(p.project_dir)
+	if types, _, ok := analyze.analyze_dwarf(s.artifact, p.project_dir); ok {
+		s.types = types
+	} else {
+		fmt.eprintln("substrate: llvm-dwarfdump failed or not found; memory lane disabled")
+	}
 }
 
 // file (project-relative) -> lines, for the line mapping (§7.1).

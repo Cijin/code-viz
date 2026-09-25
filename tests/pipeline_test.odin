@@ -49,6 +49,23 @@ wait_for :: proc(p: ^pipeline.Pipeline, kind: pipeline.Event_Kind, timeout: time
 	return 0, started, false
 }
 
+// Like wait_for(.Build_Green), but also reads the first type delta.
+@(private)
+wait_for_green_delta :: proc(p: ^pipeline.Pipeline, timeout: time.Duration) -> (id: snap.Build_Id, started: int, ok: bool, size_delta: int) {
+	start := time.tick_now()
+	for time.tick_since(start) < timeout {
+		ev, got := next_event(p, timeout - time.tick_since(start))
+		if !got do break
+		defer pipeline.event_free(&ev)
+		if ev.kind == .Build_Started do started += 1
+		if ev.kind == .Build_Green {
+			if ev.delta != nil && len(ev.delta.types) > 0 do size_delta = ev.delta.types[0].size_delta
+			return ev.id, started, true, size_delta
+		}
+	}
+	return 0, started, false, 0
+}
+
 @(test)
 build_command_test :: proc(t: ^testing.T) {
 	cmd := pipeline.build_command(FIXTURE_V213, "/tmp/x/app", context.temp_allocator)
@@ -90,8 +107,10 @@ edit_triggers_one_build_test :: proc(t: ^testing.T) {
 	path := fmt.tprintf("%s/frame.odin", project)
 	v214, _ := os.read_entire_file(fmt.tprintf("%s/frame.odin", FIXTURE_V214), context.temp_allocator)
 	_ = os.write_entire_file(path, v214)
-	second, started, ok2 := wait_for(&p, .Build_Green, 60 * time.Second)
+	second, started, ok2, mem_delta := wait_for_green_delta(&p, 60 * time.Second)
 	testing.expect(t, ok2)
+	// M2 through the pipeline: the v213 -> v214 edit grows Frame_Header by 8 B.
+	testing.expect_value(t, mem_delta, 8)
 	testing.expect_value(t, started, 1)
 	testing.expect(t, second > first)
 	_, extra := next_event(&p, 800 * time.Millisecond)
