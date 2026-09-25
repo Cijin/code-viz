@@ -138,7 +138,10 @@ draw_blocks_legend :: proc(y: f32) {
 
 draw_blocks_view :: proc(win: ^Win, d: ^snap.Delta, hits: ^[dynamic]Hit) {
 	b := &d.blocks
+	// The first build has no delta, so `b` can be the zero value (no rows,
+	// selected = 0): only index rows that exist.
 	selected := win.pinned >= 0 && win.pinned < len(b.rows) ? win.pinned : b.selected
+	if selected < 0 || selected >= len(b.rows) do selected = -1
 	file := selected >= 0 ? b.rows[selected].file : ""
 	y := draw_lens_top(win, u32(d.from), u32(d.to), file)
 	x := LENS_PAD_X
