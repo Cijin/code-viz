@@ -3,9 +3,6 @@ package main
 import "core:fmt"
 import snap "snapshot"
 
-// Glance view (SPEC §8.3, Main.dc.html right panel). One layout procedure,
-// flex-like stacking with the mockup's fixed gaps.
-
 Action :: enum u8 {
 	None,
 	Open_Glance,

@@ -4,10 +4,6 @@ import "core:math"
 import sdl "vendor:sdl3"
 import ttf "vendor:sdl3/ttf"
 
-// All layout happens in logical units (CSS px from the mockups). The helpers
-// here multiply by the display scale and draw in physical pixels, so text is
-// rasterized at full resolution instead of being scaled up.
-
 Rect :: struct {
 	x, y, w, h: f32,
 }
