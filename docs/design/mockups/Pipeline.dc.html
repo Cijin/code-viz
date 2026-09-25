@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>What existing tools make possible</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0d0f0e;font-family:'IBM Plex Sans Condensed','Arial Narrow',sans-serif;color:#ecebe4}
+a{color:#ecebe4}a:hover{color:#ffffff}
+.m{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace}
+.cap{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#8a8f85;font-weight:600}
+.node{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:6px;box-shadow:inset 0 0 0 1px #3a423c;background:#171a18;flex-grow:1;flex-basis:0}
+.node b{font-size:15px;font-weight:600}
+.node span{font-size:13px;color:#aeb2a8;line-height:1.35}
+.cell{display:flex;flex-direction:column;gap:12px;padding:14px 16px;background:#171a18}
+.item{display:flex;flex-direction:column;gap:3px}
+.item .t{font-size:15px;font-weight:600;color:#ecebe4}
+.item .k{font-size:12px;color:#aeb2a8}
+.item .g{font-size:12px;color:#7fa9cf}
+.item .d{font-size:14px;line-height:1.35;color:#aeb2a8}
+.tier{display:flex;flex-direction:column;gap:6px;padding:14px 16px;background:#141715}
+.li{display:flex;gap:12px;font-size:15px;line-height:1.4;color:#ecebe4}
+.li .x{width:22px;flex-shrink:0;color:#8a8f85}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1260px; box-sizing: border-box; padding: 40px 48px; display: flex; flex-direction: column; gap: 26px; background: #111311">
+
+<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 48px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span class="m" style="font-size: 14px; font-weight: 600; letter-spacing: .08em">SUBSTRATE</span>
+<h1 style="margin: 0; font-size: 44px; font-weight: 600; line-height: 1.05">What existing tools make possible</h1>
+</div>
+<p style="margin: 0; max-width: 580px; font-size: 16px; line-height: 1.45; color: #aeb2a8">Built in Odin with SDL3. Analyzes Odin first, then Go. Both emit DWARF on Linux and macOS, so one reader serves both. <span class="m" style="font-size: 13px; color: #ecebe4">Odin</span> and <span class="m" style="font-size: 13px; color: #7fa9cf">Go</span> tools are listed per cell.</p>
+</div>
+
+<div style="display: flex; align-items: stretch; gap: 10px">
+<div class="node"><b>Green build</b><span class="m" style="font-size: 12px">odin build -o:speed -debug</span><span class="m" style="font-size: 12px; color: #7fa9cf">go build -gcflags=all=-m</span></div>
+<svg width="28" height="60" viewBox="0 0 28 60" fill="none" stroke="#6c7269" stroke-width="1.5" aria-hidden="true" style="align-self: center"><path d="M2 30h22M18 24l6 6-6 6"></path></svg>
+<div class="node"><b>Build output</b><span>Machine code, DWARF, compiler diagnostics, source tree.</span></div>
+<svg width="28" height="60" viewBox="0 0 28 60" fill="none" stroke="#6c7269" stroke-width="1.5" aria-hidden="true" style="align-self: center"><path d="M2 30h22M18 24l6 6-6 6"></path></svg>
+<div class="node"><b>Snapshot + diff</b><span>Keyed by source line. Compare with the last green build.</span></div>
+<svg width="28" height="60" viewBox="0 0 28 60" fill="none" stroke="#6c7269" stroke-width="1.5" aria-hidden="true" style="align-self: center"><path d="M2 30h22M18 24l6 6-6 6"></path></svg>
+<div class="node"><b>Block rows</b><span>Each code block gets its execution, safety and memory cells.</span></div>
+<svg width="28" height="60" viewBox="0 0 28 60" fill="none" stroke="#6c7269" stroke-width="1.5" aria-hidden="true" style="align-self: center"><path d="M2 30h22M18 24l6 6-6 6"></path></svg>
+<div class="node" style="box-shadow: inset 0 0 0 1.5px #ecebe4"><b>Glance, blocks, lens</b><span>Half a second, five seconds, or study.</span></div>
+</div>
+
+<div style="display: grid; grid-template-columns: 230px repeat(3, minmax(0, 1fr)); gap: 1px; background: #262b27; border-radius: 8px; overflow: hidden; box-shadow: 0 0 0 1px #262b27">
+<div class="tier" style="justify-content: flex-end"><span class="cap">Tier</span></div>
+<div class="tier"><span class="cap">Execution</span></div>
+<div class="tier"><span class="cap">Safety</span></div>
+<div class="tier"><span class="cap">Memory</span></div>
+
+<div class="tier">
+<span class="m" style="font-size: 20px; font-weight: 600">T0 · &lt; 300 ms</span>
+<span style="font-size: 14px; line-height: 1.4; color: #aeb2a8">Every green build. Reads build output only. Drives the glance view.</span>
+</div>
+<div class="cell">
+<div class="item"><span class="t">Inlining map</span><span class="m k">DW_TAG_inlined_subroutine · llvm-dwarfdump</span><span class="m g">-gcflags=-m · "can inline", "inlining call to"</span><span class="d">Which calls the compiler inlined. Odin exposes no remarks, so DWARF is the source.</span></div>
+<div class="item"><span class="t">Symbol diff</span><span class="m k">llvm-nm -S</span><span class="m g">go tool nm -size</span><span class="d">Which procedures changed size.</span></div>
+</div>
+<div class="cell">
+<div class="item"><span class="t">Check-site scan</span><span class="m k">calls to runtime.bounds_check_error, slice_expr_error_*</span><span class="m g">-d=ssa/check_bce · calls to runtime.panicIndex</span><span class="d">Every run-time check left after optimization, by line.</span></div>
+<div class="item"><span class="t">Opt-out scan</span><span class="m k">core:odin/parser · #no_bounds_check, transmute, [^]T</span><span class="m g">go/ast · package unsafe</span><span class="d">Where the code turns checks off.</span></div>
+</div>
+<div class="cell">
+<div class="item"><span class="t">Type layout</span><span class="m k">DWARF · llvm-dwarfdump</span><span class="m g">DWARF · fieldalignment analyzer</span><span class="d">Offsets, size, alignment and padding for every struct. Both languages keep declared order.</span></div>
+</div>
+
+<div class="tier">
+<span class="m" style="font-size: 20px; font-weight: 600">T1 · &lt; 2 s</span>
+<span style="font-size: 14px; line-height: 1.4; color: #aeb2a8">Every green build. Changed procedures only. Drives blocks and lenses.</span>
+</div>
+<div class="cell">
+<div class="item"><span class="t">Machine code by line</span><span class="m k">llvm-objdump -d -l -M intel</span><span class="m g">go tool objdump -s</span><span class="d">Instructions grouped by source line, classified by shape.</span></div>
+<div class="item"><span class="t">Throughput estimate</span><span class="m k">llvm-mca</span><span class="d">Estimated cycles on one CPU model. Lens only.</span></div>
+</div>
+<div class="cell">
+<div class="item"><span class="t">Lint diff</span><span class="m k">odin build -vet</span><span class="m g">go vet · staticcheck</span><span class="d">New findings since the last green build.</span></div>
+<div class="item"><span class="t">Bound arithmetic</span><span class="m k">custom pass · to build</span><span class="d">Which wrapping additions an earlier check already bounds.</span></div>
+</div>
+<div class="cell">
+<div class="item"><span class="t">Heap escapes</span><span class="m g">-gcflags=-m · "escapes to heap"</span><span class="d">Go only. Values the compiler moved to the heap.</span></div>
+<div class="item"><span class="t">Binary size</span><span class="m k">bloaty</span><span class="m g">go tool nm -size</span><span class="d">Bytes per symbol.</span></div>
+</div>
+
+<div class="tier">
+<span class="m" style="font-size: 20px; font-weight: 600">T2 · background</span>
+<span style="font-size: 14px; line-height: 1.4; color: #aeb2a8">Seconds to minutes. Needs a pinned test. The next build cancels it.</span>
+</div>
+<div class="cell">
+<div class="item"><span class="t">Executed counts</span><span class="m k">Callgrind · Cachegrind · perf stat</span><span class="m g">same, on the test binary</span><span class="d">Instructions, cache misses and branch misses for the test.</span></div>
+</div>
+<div class="cell">
+<div class="item"><span class="t">Memory errors</span><span class="m k">odin test -sanitize:address · :thread</span><span class="m g">go test -race · -asan</span><span class="d">Out-of-bounds access, use after free and data races.</span></div>
+</div>
+<div class="cell">
+<div class="item"><span class="t">Heap profile</span><span class="m k">DHAT · heaptrack · mem.Tracking_Allocator</span><span class="m g">pprof heap · GODEBUG=gctrace=1</span><span class="d">Allocations, peak heap and leaks. Go adds GC cycles.</span></div>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<span class="cap">Hard limits</span>
+<div class="li"><span class="m x">01</span><span>Runtime numbers need a pinned test. Without one, execution stops at static facts.</span></div>
+<div class="li"><span class="m x">02</span><span>Analyze the build that ships: -o:speed with -debug. A debug-only build misreports inlining and checks.</span></div>
+<div class="li"><span class="m x">03</span><span>Optimized code maps to lines only approximately. Inlined code gets the line of its origin.</span></div>
+<div class="li"><span class="m x">04</span><span>Odin on Windows emits PDB, not DWARF. Windows needs a second reader, so Linux and macOS come first.</span></div>
+<div class="li"><span class="m x">05</span><span>Callgrind and DHAT run on Linux only. macOS needs a different T2 backend.</span></div>
+<div class="li"><span class="m x">06</span><span>Go's own compiler is not LLVM. llvm-mca and LLVM passes do not apply to Go.</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<span class="cap">Glance rules</span>
+<div class="li"><span class="m x">01</span><span>Show deltas, not dashboards. Show only what changed since the last green build.</span></div>
+<div class="li"><span class="m x">02</span><span>Color means attention. <span style="color: #f2a14a">Orange is cost</span>, <span style="color: #5ea8ee">blue is gain</span>, grey is no change.</span></div>
+<div class="li"><span class="m x">03</span><span>Shapes, not sentences. Text goes in hover and lenses only.</span></div>
+<div class="li"><span class="m x">04</span><span>Every consequence sits on the row of the code that caused it.</span></div>
+<div class="li"><span class="m x">05</span><span>Use deterministic metrics only: bytes, instruction counts, check sites.</span></div>
+<div class="li"><span class="m x">06</span><span>Silence is the default. A lane with no change collapses to one line.</span></div>
+</div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1260}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

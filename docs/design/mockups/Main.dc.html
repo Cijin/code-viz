@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Substrate glance view</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0d0f0e;font-family:'IBM Plex Sans Condensed','Arial Narrow',sans-serif;color:#ecebe4}
+a{color:#ecebe4;text-decoration:none}a:hover{color:#ffffff}
+.m{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace}
+.cap{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#8a8f85;font-weight:600}
+.pad{background:repeating-linear-gradient(135deg,rgba(242,161,74,.6) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1px rgba(242,161,74,.55)}
+.ln{display:flex;align-items:center;height:24px}
+.no{width:44px;text-align:right;padding-right:12px;color:#5c625b;font-size:13px}
+.bar{width:3px;height:24px;margin-right:14px;background:transparent}
+.code{font-size:13px;color:#8f948a;white-space:pre}
+.chg .bar{background:#aeb2a8}
+.chg .code{color:#ecebe4}
+.hint{margin-left:20px;display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;background:rgba(242,161,74,.10)}
+.mc{width:14px;height:14px;box-sizing:border-box;border-radius:2px}
+.mc.f{background:#56625a}
+.mc.new{background:#56625a;box-shadow:inset 0 0 0 2px #f2a14a}
+.i{display:block;flex-shrink:0;box-sizing:border-box}
+.i.alu{width:8px;height:14px;border-radius:1.5px;background:#6c7a70}
+.i.mem{width:8px;height:14px;border-radius:1.5px;box-shadow:inset 0 0 0 1.5px #aeb2a8}
+.i.br{width:8px;height:8px;margin:0 2px;transform:rotate(45deg);background:#aeb2a8}
+.i.call{width:10px;height:10px;border-radius:50%;background:#ecebe4}
+.i.n.alu,.i.n.br,.i.n.call{background:#f2a14a}
+.i.n.mem{box-shadow:inset 0 0 0 1.5px #f2a14a}
+.i.mod{outline:1px dashed #ecebe4;outline-offset:1px}
+.pp{display:block;width:14px;height:14px;border-radius:50%;box-sizing:border-box;box-shadow:inset 0 0 0 1.5px #aeb2a8}
+.pp.new{background:#f2a14a;box-shadow:none}
+.pp.gh{box-shadow:none;border:1.5px dashed #5c625b}
+.lane{display:flex;flex-direction:column;gap:12px;padding:16px 18px;border-radius:8px;background:#1b1f1c;box-shadow:inset 0 0 0 1px #262b27}
+.lane:hover{background:#20251f;box-shadow:inset 0 0 0 1px #3a423c}
+.big{font-size:34px;font-weight:600;color:#f2a14a;line-height:1}
+.tcol{display:flex;flex-direction:column;gap:5px;align-items:center;padding:6px 5px;border-radius:4px}
+.tcol.cur{background:#232824;box-shadow:inset 0 0 0 1px #4a524b}
+.td{width:8px;height:8px;border-radius:50%}
+.dc{background:#f2a14a}.dg{background:#5ea8ee}.dn{background:#353b36}
+.bx{padding:3px 7px;border-radius:4px;box-shadow:inset 0 0 0 1px #4a524b;font-size:11px;color:#aeb2a8}
+.bx.hot{box-shadow:inset 0 0 0 1.5px #f2a14a;color:#ecebe4}
+.eq{font-size:11px;padding:4px 8px;border-radius:4px;background:#1b1f1c;color:#8a8f85}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; padding: 20px; display: flex; gap: 16px; background: #0d0f0e">
+
+<div style="flex-grow: 1; display: flex; flex-direction: column; background: #121513; border-radius: 10px; box-shadow: inset 0 0 0 1px #232824; overflow: hidden">
+<div style="height: 40px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #232824">
+<span class="m" style="font-size: 13px; color: #aeb2a8">frame/parser.odin — framekit</span>
+<span class="cap">Your editor</span>
+</div>
+<div style="flex-grow: 1; padding: 16px 0; display: flex; flex-direction: column">
+<sc-for list="{{lines}}" as="l" hint-placeholder-count="24">
+<div class="{{l.cls}}">
+<span class="no m">{{l.n}}</span>
+<span class="bar"></span>
+<span class="code m">{{l.code}}</span>
+<sc-if value="{{l.hMem}}" hint-placeholder-val="{{false}}">
+<span class="hint"><span class="pad" style="display: block; width: 28px; height: 12px; border-radius: 2px"></span><span class="m" style="font-size: 12px; color: #f2a14a">+8 B</span></span>
+</sc-if>
+<sc-if value="{{l.hOps}}" hint-placeholder-val="{{false}}">
+<span class="hint">
+<sc-for list="{{l.ops}}" as="o" hint-placeholder-count="4"><span class="{{o.c}}"></span></sc-for>
+<sc-if value="{{l.hPip}}" hint-placeholder-val="{{false}}"><span class="pp new" style="margin-left: 6px"></span></sc-if>
+</span>
+</sc-if>
+<sc-if value="{{l.hCall}}" hint-placeholder-val="{{false}}">
+<span class="hint"><span class="i n call"></span><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#f2a14a" stroke-width="1.5" aria-hidden="true"><path d="M0 5h19M15 1l4 4-4 4"></path></svg></span>
+</sc-if>
+</div>
+</sc-for>
+</div>
+<div style="height: 32px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #232824">
+<span class="m" style="font-size: 12px; color: #8a8f85">odin build frame -o:speed -debug · ok · 1.9 s</span>
+<span class="m" style="font-size: 12px; color: #8a8f85">LSP bridge · optional</span>
+</div>
+</div>
+
+<div style="width: 468px; flex-shrink: 0; display: flex; flex-direction: column; background: #151816; border-radius: 10px; box-shadow: inset 0 0 0 1px #2b312d; overflow: hidden">
+<div style="height: 40px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #232824">
+<span class="m" style="font-size: 13px; font-weight: 600; letter-spacing: .08em">SUBSTRATE</span>
+<a href="Blocks.dc.html" style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 5px; box-shadow: inset 0 0 0 1px #3a423c">
+<span style="width: 8px; height: 8px; border-radius: 50%; background: #aeb2a8"></span>
+<span class="m" style="font-size: 12px; color: #aeb2a8">213 → 214 · blocks</span>
+</a>
+</div>
+
+<div style="padding: 12px; display: flex; flex-direction: column; gap: 10px">
+
+<a href="Execution.dc.html" class="lane">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<span class="cap">Execution</span>
+<span class="m" style="font-size: 12px; color: #8a8f85">parse_header</span>
+</div>
+<div style="display: flex; align-items: center; gap: 16px">
+<span class="m big" style="width: 80px; flex-shrink: 0">+9</span>
+<div style="display: flex; flex-wrap: wrap; gap: 3px; align-items: center; flex-grow: 1">
+<sc-for list="{{ops}}" as="o" hint-placeholder-count="29"><span class="{{o.c}}"></span></sc-for>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="width: 88px; flex-shrink: 0"></span>
+<div style="display: flex; align-items: center; gap: 4px; padding: 3px; border-radius: 5px; box-shadow: inset 0 0 0 1px #4a524b">
+<span class="m" style="font-size: 11px; color: #aeb2a8; padding: 0 4px">read_frame</span>
+<span class="m bx">parse</span>
+</div>
+<svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#6c7269" stroke-width="1.5" aria-hidden="true"><path d="M0 5h18M14 1l4 4-4 4"></path></svg>
+<span class="m bx">read_frame</span>
+<svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#f2a14a" stroke-width="1.5" aria-hidden="true"><path d="M0 5h18M14 1l4 4-4 4"></path></svg>
+<span class="m bx hot">parse</span>
+</div>
+</a>
+
+<a href="Memory.dc.html" class="lane">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<span class="cap">Memory</span>
+<span class="m" style="font-size: 12px; color: #8a8f85">Frame_Header</span>
+</div>
+<div style="display: flex; align-items: center; gap: 16px">
+<span class="m big" style="width: 80px; flex-shrink: 0">+8 B</span>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; gap: 2px; align-items: center">
+<span class="m" style="width: 28px; font-size: 10px; color: #6c7269">213</span>
+<sc-for list="{{memOld}}" as="c" hint-placeholder-count="16"><span class="{{c.cls}}"></span></sc-for>
+</div>
+<div style="display: flex; gap: 2px; align-items: center">
+<span class="m" style="width: 28px; font-size: 10px; color: #aeb2a8">214</span>
+<sc-for list="{{memNew}}" as="c" hint-placeholder-count="24"><span class="{{c.cls}}"></span></sc-for>
+</div>
+</div>
+</div>
+</a>
+
+<a href="Safety.dc.html" class="lane">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<span class="cap">Safety</span>
+<span class="m" style="font-size: 12px; color: #8a8f85">parse_header</span>
+</div>
+<div style="display: flex; align-items: center; gap: 16px">
+<span class="m big" style="width: 80px; flex-shrink: 0">+1</span>
+<div style="display: flex; gap: 6px; align-items: center">
+<span class="pp"></span><span class="pp"></span><span class="pp new"></span><span class="pp"></span>
+</div>
+<svg width="26" height="10" viewBox="0 0 26 10" fill="none" stroke="#5ea8ee" stroke-width="1.5" aria-hidden="true"><path d="M0 5h22M18 1l4 4-4 4"></path></svg>
+<div style="display: flex; gap: 6px; align-items: center">
+<span class="pp" style="box-shadow: inset 0 0 0 1.5px #5ea8ee"></span><span class="pp gh"></span><span class="pp gh"></span><span class="pp gh"></span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="width: 88px; flex-shrink: 0"></span>
+<span class="m" style="font-size: 11px; color: #8a8f85">asan</span>
+<div style="width: 120px; height: 4px; border-radius: 2px; background: #262b27; display: flex"><span style="width: 64%; background: #aeb2a8; border-radius: 2px"></span></div>
+<span class="m" style="font-size: 11px; color: #8a8f85">9/14</span>
+</div>
+</a>
+
+<div style="display: flex; gap: 8px; padding: 4px 6px 0">
+<span class="m eq">= stack</span>
+<span class="m eq">= heap</span>
+<span class="m eq">= opt-out</span>
+<span class="m eq">= vet</span>
+</div>
+
+</div>
+
+<div style="margin-top: auto; padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid #232824">
+<div style="display: flex; gap: 10px; align-items: center">
+<div class="m" style="display: flex; flex-direction: column; gap: 5px; font-size: 10px; line-height: 8px; color: #8a8f85">
+<span>E</span><span>M</span><span>S</span>
+</div>
+<div style="display: flex; gap: 2px">
+<sc-for list="{{builds}}" as="b" hint-placeholder-count="16">
+<div class="{{b.col}}">
+<span class="{{b.e}}"></span>
+<span class="{{b.m}}"></span>
+<span class="{{b.s}}"></span>
+</div>
+</sc-for>
+</div>
+</div>
+<div class="m" style="display: flex; gap: 12px; align-items: center; font-size: 11px; color: #8a8f85">
+<span style="display: flex; gap: 5px; align-items: center"><span class="i alu"></span>op</span>
+<span style="display: flex; gap: 5px; align-items: center"><span class="i mem"></span>mem</span>
+<span style="display: flex; gap: 5px; align-items: center"><span class="i br"></span>branch</span>
+<span style="display: flex; gap: 5px; align-items: center"><span class="i call"></span>call</span>
+<span style="display: flex; gap: 5px; align-items: center"><span class="pp"></span>check</span>
+<span style="display: flex; gap: 5px; align-items: center"><span class="td dc"></span>cost</span>
+<span style="display: flex; gap: 5px; align-items: center"><span class="td dg"></span>gain</span>
+</div>
+</div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const K = { a: 'alu', m: 'mem', b: 'br', c: 'call' };
+    const ops = (s) => s.split(' ').filter(Boolean).map((t) => {
+      const flag = t[0] === '+' ? ' n' : (t[0] === '~' ? ' mod' : '');
+      const k = flag ? t.slice(1) : t;
+      return { c: 'i ' + K[k] + flag };
+    });
+    const L = (n, code, o) => {
+      o = o || {};
+      return { n: n, code: code, cls: o.chg ? 'ln chg' : 'ln', hMem: !!o.mem, hOps: !!o.ops, ops: o.ops ? ops(o.ops) : [], hPip: !!o.pip, hCall: !!o.call };
+    };
+    const lines = [
+      L(1, 'package frame'),
+      L(2, ''),
+      L(3, 'import "core:encoding/endian"'),
+      L(4, ''),
+      L(5, 'Frame_Header :: struct {'),
+      L(6, '    kind:      u8,'),
+      L(7, '    length:    u32,'),
+      L(8, '    flags:     u8,', { chg: true, mem: true }),
+      L(9, '    stream_id: u64,'),
+      L(10, '}'),
+      L(11, ''),
+      L(12, 'parse_header :: proc(buf: []u8, offset: int) -> Frame_Header {'),
+      L(13, '    kind      := buf[offset]'),
+      L(14, '    length    := endian.unchecked_get_u32le(buf[offset+1:offset+5])'),
+      L(15, '    flags     := buf[offset+5]', { chg: true, ops: '+a +a +b +m', pip: true }),
+      L(16, '    stream_id := endian.unchecked_get_u64le(buf[offset+6:offset+14])'),
+      L(17, '    return {kind, length, flags, stream_id}', { chg: true, ops: '+m +a +c' }),
+      L(18, '}'),
+      L(19, ''),
+      L(20, 'read_frame :: proc(buf: []u8, offset: int) -> Frame {'),
+      L(21, '    header := parse_header(buf, offset)', { call: true }),
+      L(22, '    body   := buf[offset+HEADER_SIZE:][:header.length]'),
+      L(23, '    return {header, body}'),
+      L(24, '}')
+    ];
+    const allOps = ops('a b m a a b m +a +a +b +m a a b m m m +m ~m +a +c a c a c a c +a +c');
+    const cells = (s) => s.split('').map((k) => ({ cls: k === 'p' ? 'mc pad' : (k === 'n' ? 'mc new' : 'mc f') }));
+    const memOld = cells('fpppffffffffffff');
+    const memNew = cells('fpppffffnpppppppffffffff');
+    const pat = ['nnn','gnn','nnn','cnn','ncn','nnn','ggn','nnc','nng','nnn','cnn','nnn','gnn','nnn','nnn','ccc'];
+    const cls = (ch) => 'td ' + (ch === 'c' ? 'dc' : ch === 'g' ? 'dg' : 'dn');
+    const builds = pat.map((p, i) => ({ col: i === pat.length - 1 ? 'tcol cur' : 'tcol', e: cls(p[0]), m: cls(p[1]), s: cls(p[2]) }));
+    return { lines: lines, ops: allOps, memOld: memOld, memNew: memNew, builds: builds };
+  }
+}
+</script>
+</body>
+</html>

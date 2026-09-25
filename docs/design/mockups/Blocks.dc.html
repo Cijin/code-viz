@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Consequences by block</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0d0f0e;font-family:'IBM Plex Sans Condensed','Arial Narrow',sans-serif;color:#ecebe4}
+a{color:#ecebe4;text-decoration:none}a:hover{color:#ffffff}
+.m{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace}
+.cap{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#8a8f85;font-weight:600}
+.tab{padding:10px 14px;border-radius:6px;font-size:15px;font-weight:500;color:#aeb2a8}
+.tab:hover{color:#ecebe4;background:#1b1f1c}
+.tab.on{color:#ecebe4;background:#232824;box-shadow:inset 0 -2px 0 #ecebe4}
+.pad{background:repeating-linear-gradient(135deg,rgba(242,161,74,.6) 0 2px,transparent 2px 5px);box-shadow:inset 0 0 0 1px rgba(242,161,74,.55)}
+.i{display:block;flex-shrink:0;box-sizing:border-box}
+.i.alu{width:11px;height:20px;border-radius:2px;background:#6c7a70}
+.i.mem{width:11px;height:20px;border-radius:2px;box-shadow:inset 0 0 0 2px #aeb2a8}
+.i.br{width:12px;height:12px;margin:0 3px;transform:rotate(45deg);background:#aeb2a8}
+.i.call{width:15px;height:15px;border-radius:50%;background:#ecebe4}
+.i.n.alu,.i.n.br,.i.n.call{background:#f2a14a}
+.i.n.mem{box-shadow:inset 0 0 0 2px #f2a14a}
+.i.mod{outline:1.5px dashed #ecebe4;outline-offset:2px}
+.pp{display:block;width:18px;height:18px;border-radius:50%;box-sizing:border-box;box-shadow:inset 0 0 0 2px #aeb2a8;flex-shrink:0}
+.pp.new{background:#f2a14a;box-shadow:none}
+.by{display:block;width:9px;height:18px;border-radius:1.5px;box-sizing:border-box;flex-shrink:0}
+.by.ld{box-shadow:inset 0 0 0 1.5px #8a8f85}
+.by.ld.n{box-shadow:inset 0 0 0 1.5px #f2a14a}
+.by.st{background:#56625a}
+.by.st.n{background:#f2a14a}
+.by.f{background:#56625a}
+.by.fn{background:#56625a;box-shadow:inset 0 0 0 2px #f2a14a}
+.by.p{background:repeating-linear-gradient(135deg,rgba(242,161,74,.7) 0 2px,transparent 2px 5px);box-shadow:inset 0 0 0 1px rgba(242,161,74,.55)}
+.blk{display:grid;grid-template-columns:520px minmax(0,1fr) 150px minmax(0,1fr);border-top:1px solid #222723}
+.blk.chg{background:rgba(242,161,74,.05)}
+.blk.sel{background:rgba(242,161,74,.10);box-shadow:inset 3px 0 0 #f2a14a}
+.src{display:flex;flex-direction:column;padding:10px 16px 10px 12px}
+.sl{display:flex;height:22px;align-items:center;font-size:12.5px;white-space:pre;color:#8f948a}
+.sl .n{width:30px;color:#5c625b}
+.blk.chg .sl.c,.blk.sel .sl.c{color:#ecebe4}
+.col{display:flex;align-items:center;gap:5px;padding:10px 16px;border-left:1px solid #222723}
+.dv{margin-left:auto;font-size:14px;color:#f2a14a}
+.none{color:#3a403b;font-size:14px}
+</style>
+</helmet>
+<div style="width: 1440px; height: 960px; box-sizing: border-box; padding: 24px 32px 28px; display: flex; flex-direction: column; gap: 18px; background: #111311">
+
+<div style="display: flex; align-items: center; justify-content: space-between; height: 44px">
+<div style="display: flex; align-items: center; gap: 24px">
+<span class="m" style="font-size: 14px; font-weight: 600; letter-spacing: .08em">SUBSTRATE</span>
+<nav style="display: flex; gap: 4px">
+<a href="Main.dc.html" class="tab">Glance</a>
+<a href="Blocks.dc.html" class="tab on">Blocks</a>
+<a href="Execution.dc.html" class="tab">Execution</a>
+<a href="Memory.dc.html" class="tab">Memory</a>
+<a href="Safety.dc.html" class="tab">Safety</a>
+</nav>
+</div>
+<span class="m" style="font-size: 13px; color: #8a8f85">213 → 214 · frame/parser.odin</span>
+</div>
+
+<div style="display: flex; flex-direction: column; background: #171a18; border-radius: 8px; box-shadow: inset 0 0 0 1px #262b27; overflow: hidden; flex-grow: 1">
+
+<div class="blk" style="border-top: 0; height: 40px; align-items: center">
+<span class="cap" style="padding-left: 42px">code block</span>
+<span class="cap" style="padding-left: 16px">execution</span>
+<span class="cap" style="padding-left: 16px">safety</span>
+<span class="cap" style="padding-left: 16px">memory</span>
+</div>
+
+<div class="blk chg">
+<div class="src m">
+<div class="sl"><span class="n">5</span><span>Frame_Header :: struct {</span></div>
+<div class="sl"><span class="n">6</span><span>    kind:      u8,</span></div>
+<div class="sl"><span class="n">7</span><span>    length:    u32,</span></div>
+<div class="sl c"><span class="n">8</span><span>    flags:     u8,</span></div>
+<div class="sl"><span class="n">9</span><span>    stream_id: u64,</span></div>
+<div class="sl"><span class="n">10</span><span>}</span></div>
+</div>
+<div class="col"><span class="none m">·</span></div>
+<div class="col"><span class="none m">·</span></div>
+<div class="col" style="gap: 2px">
+<sc-for list="{{layout}}" as="b" hint-placeholder-count="24"><span class="{{b.c}}"></span></sc-for>
+<span class="dv m">+8 B</span>
+</div>
+</div>
+
+<div class="blk">
+<div class="src m"><div class="sl"><span class="n">13</span><span>    kind      := buf[offset]</span></div></div>
+<div class="col"><span class="i alu"></span><span class="i br"></span><span class="i mem"></span></div>
+<div class="col"><span class="pp"></span></div>
+<div class="col" style="gap: 2px"><span class="by ld"></span></div>
+</div>
+
+<div class="blk">
+<div class="src m"><div class="sl"><span class="n">14</span><span>    length    := endian.unchecked_get_u32le(buf[offset+1:offset+5])</span></div></div>
+<div class="col"><span class="i alu"></span><span class="i alu"></span><span class="i br"></span><span class="i mem"></span></div>
+<div class="col"><span class="pp"></span></div>
+<div class="col" style="gap: 2px"><span class="by ld"></span><span class="by ld"></span><span class="by ld"></span><span class="by ld"></span></div>
+</div>
+
+<div class="blk sel">
+<div class="src m"><div class="sl c"><span class="n">15</span><span>    flags     := buf[offset+5]</span></div></div>
+<div class="col"><span class="i n alu"></span><span class="i n alu"></span><span class="i n br"></span><span class="i n mem"></span><span class="dv m">+4</span></div>
+<div class="col"><span class="pp new"></span><span class="dv m">+1</span></div>
+<div class="col" style="gap: 2px"><span class="by ld n"></span><span class="dv m">+1 B</span></div>
+</div>
+
+<div class="blk">
+<div class="src m"><div class="sl"><span class="n">16</span><span>    stream_id := endian.unchecked_get_u64le(buf[offset+6:offset+14])</span></div></div>
+<div class="col"><span class="i alu"></span><span class="i alu"></span><span class="i br"></span><span class="i mem"></span></div>
+<div class="col"><span class="pp"></span></div>
+<div class="col" style="gap: 2px"><span class="by ld"></span><span class="by ld"></span><span class="by ld"></span><span class="by ld"></span><span class="by ld"></span><span class="by ld"></span><span class="by ld"></span><span class="by ld"></span></div>
+</div>
+
+<div class="blk chg">
+<div class="src m"><div class="sl c"><span class="n">17</span><span>    return {kind, length, flags, stream_id}</span></div></div>
+<div class="col"><span class="i mem"></span><span class="i mem"></span><span class="i n mem"></span><span class="i mem mod"></span><span class="i n alu"></span><span class="i n call"></span><span class="dv m">+3</span></div>
+<div class="col"><span class="none m">·</span></div>
+<div class="col" style="gap: 2px">
+<sc-for list="{{store}}" as="b" hint-placeholder-count="24"><span class="{{b.c}}"></span></sc-for>
+<span class="dv m">stack</span>
+</div>
+</div>
+
+<div class="blk chg">
+<div class="src m"><div class="sl c"><span class="n">21</span><span>    header := parse_header(buf, offset)</span></div></div>
+<div class="col"><span class="i n call"></span><svg width="28" height="12" viewBox="0 0 28 12" fill="none" stroke="#f2a14a" stroke-width="1.5" aria-hidden="true"><path d="M0 6h24M19 1l5 5-5 5"></path></svg><span class="m" style="font-size: 12px; padding: 3px 8px; border-radius: 4px; box-shadow: inset 0 0 0 1.5px #f2a14a">parse_header</span><span class="dv m">+1</span></div>
+<div class="col"><span class="none m">·</span></div>
+<div class="col"><span class="none m">·</span></div>
+</div>
+
+<div class="blk" style="margin-top: auto; border-top: 1px solid #3a423c; background: #141715">
+<div class="src m" style="justify-content: center"><span class="cap" style="padding-left: 30px">Σ build 214</span></div>
+<div class="col"><span class="dv m" style="margin-left: 0; font-size: 22px; font-weight: 600">+9</span></div>
+<div class="col"><span class="dv m" style="margin-left: 0; font-size: 22px; font-weight: 600">+1</span></div>
+<div class="col"><span class="dv m" style="margin-left: 0; font-size: 22px; font-weight: 600">+8 B</span></div>
+</div>
+
+</div>
+
+<div class="m" style="display: flex; gap: 18px; align-items: center; font-size: 12px; color: #8a8f85">
+<span style="display: flex; gap: 6px; align-items: center"><span class="i alu"></span>op</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="i mem"></span>load / store</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="i br"></span>branch</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="i call"></span>call</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="pp"></span>check</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="by ld"></span>byte read</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="by st"></span>byte written</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="by p"></span>padding</span>
+<span style="margin-left: auto; color: #6c7269">select code in the editor to pin its row</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const map = { f: 'by f', p: 'by p', n: 'by fn', s: 'by st', w: 'by st n', q: 'by p' };
+    const layout = 'fpppffffnpppppppffffffff'.split('').map((k) => ({ c: map[k] }));
+    const store = 'sqqqsssswqqqqqqqssssssss'.split('').map((k) => ({ c: map[k] }));
+    return { layout: layout, store: store };
+  }
+}
+</script>
+</body>
+</html>

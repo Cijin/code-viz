@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Execution lens</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0d0f0e;font-family:'IBM Plex Sans Condensed','Arial Narrow',sans-serif;color:#ecebe4}
+a{color:#ecebe4;text-decoration:none}a:hover{color:#ffffff}
+.m{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace}
+.cap{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#8a8f85;font-weight:600}
+.tab{padding:10px 14px;border-radius:6px;font-size:15px;font-weight:500;color:#aeb2a8}
+.tab:hover{color:#ecebe4;background:#1b1f1c}
+.tab.on{color:#ecebe4;background:#232824;box-shadow:inset 0 -2px 0 #ecebe4}
+.panel{display:flex;flex-direction:column;gap:14px;padding:16px;background:#171a18;border-radius:8px;box-shadow:inset 0 0 0 1px #262b27}
+.i{display:block;flex-shrink:0;box-sizing:border-box}
+.i.alu{width:11px;height:20px;border-radius:2px;background:#6c7a70}
+.i.mem{width:11px;height:20px;border-radius:2px;box-shadow:inset 0 0 0 2px #aeb2a8}
+.i.br{width:12px;height:12px;margin:0 3px;transform:rotate(45deg);background:#aeb2a8}
+.i.call{width:15px;height:15px;border-radius:50%;background:#ecebe4}
+.i.n.alu,.i.n.br,.i.n.call{background:#f2a14a}
+.i.n.mem{box-shadow:inset 0 0 0 2px #f2a14a}
+.i.mod{outline:1.5px dashed #ecebe4;outline-offset:2px}
+.row{display:grid;grid-template-columns:44px 400px minmax(0,1fr) minmax(0,1fr) 56px;align-items:center;height:40px;border-top:1px solid #222723}
+.row.hot{background:rgba(242,161,74,.07)}
+.row .n{font-size:12px;color:#5c625b}
+.row.hot .n{color:#f2a14a}
+.row .c{font-size:12.5px;color:#8f948a;white-space:pre;overflow:hidden;text-overflow:ellipsis}
+.row.hot .c{color:#ecebe4}
+.cells{display:flex;gap:5px;align-items:center}
+.row .d{font-size:14px;color:#f2a14a;text-align:right}
+.stat{display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:6px;background:#171a18;box-shadow:inset 0 0 0 1px #262b27}
+.stat .v{font-size:22px;font-weight:600;color:#f2a14a}
+.bx{padding:6px 10px;border-radius:5px;box-shadow:inset 0 0 0 1px #4a524b;font-size:12px;color:#aeb2a8}
+.bx.hot{box-shadow:inset 0 0 0 1.5px #f2a14a;color:#ecebe4}
+.slot{width:92px;height:30px;border-radius:4px;box-sizing:border-box;box-shadow:inset 0 0 0 1px #4a524b;display:flex;align-items:center;justify-content:center;font-size:11px;color:#6c7269}
+.pair{display:flex;flex-direction:column;gap:4px}
+.pair .b{height:10px;border-radius:2px}
+</style>
+</helmet>
+<div style="width: 1440px; height: 960px; box-sizing: border-box; padding: 24px 32px 28px; display: flex; flex-direction: column; gap: 18px; background: #111311">
+
+<div style="display: flex; align-items: center; justify-content: space-between; height: 44px">
+<div style="display: flex; align-items: center; gap: 24px">
+<span class="m" style="font-size: 14px; font-weight: 600; letter-spacing: .08em">SUBSTRATE</span>
+<nav style="display: flex; gap: 4px">
+<a href="Main.dc.html" class="tab">Glance</a>
+<a href="Blocks.dc.html" class="tab">Blocks</a>
+<a href="Execution.dc.html" class="tab on">Execution</a>
+<a href="Memory.dc.html" class="tab">Memory</a>
+<a href="Safety.dc.html" class="tab">Safety</a>
+</nav>
+</div>
+<span class="m" style="font-size: 13px; color: #8a8f85">213 → 214 · -o:speed · x86-64</span>
+</div>
+
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span class="m" style="font-size: 30px; font-weight: 600">parse_header</span>
+<div style="display: flex; gap: 10px">
+<div class="stat"><span class="i n alu"></span><span class="m v">+9</span><span class="m" style="font-size: 13px; color: #8a8f85">20→29</span></div>
+<div class="stat"><span class="i n br"></span><span class="m v">+1</span><span class="m" style="font-size: 13px; color: #8a8f85">3→4</span></div>
+<div class="stat"><span class="i n call"></span><span class="m v">+1</span><span class="m" style="font-size: 13px; color: #8a8f85">0→1</span></div>
+</div>
+</div>
+
+<div class="panel" style="gap: 0; padding: 8px 16px 4px">
+<div class="row m" style="border-top: 0; height: 30px">
+<span></span><span></span>
+<span class="cap">213</span>
+<span class="cap" style="color: #ecebe4">214</span>
+<span class="cap" style="text-align: right">Δ</span>
+</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+<div class="{{r.cls}}">
+<span class="n m">{{r.n}}</span>
+<span class="c m">{{r.code}}</span>
+<div class="cells"><sc-for list="{{r.old}}" as="o" hint-placeholder-count="4"><span class="{{o.c}}"></span></sc-for></div>
+<div class="cells"><sc-for list="{{r.now}}" as="o" hint-placeholder-count="4"><span class="{{o.c}}"></span></sc-for></div>
+<span class="d m">{{r.d}}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; flex-grow: 1">
+
+<div class="panel">
+<span class="cap">Inline</span>
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 12px">
+<span class="m" style="width: 32px; font-size: 11px; color: #6c7269">213</span>
+<div style="display: flex; align-items: center; gap: 6px; padding: 4px 4px 4px 10px; border-radius: 6px; box-shadow: inset 0 0 0 1px #4a524b">
+<span class="m" style="font-size: 12px; color: #aeb2a8">read_frame</span>
+<span class="m bx">parse_header</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<span class="m" style="width: 32px; font-size: 11px; color: #aeb2a8">214</span>
+<span class="m bx">read_frame</span>
+<svg width="28" height="12" viewBox="0 0 28 12" fill="none" stroke="#f2a14a" stroke-width="1.5" aria-hidden="true"><path d="M0 6h24M19 1l5 5-5 5"></path></svg>
+<span class="m bx hot">parse_header</span>
+</div>
+</div>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 6px">
+<div style="position: relative; height: 26px">
+<div style="position: absolute; left: 0; right: 0; top: 11px; height: 4px; border-radius: 2px; background: #262b27"></div>
+<div style="position: absolute; left: 75%; top: 0; width: 2px; height: 26px; background: #ecebe4"></div>
+<div style="position: absolute; left: 68.3%; top: 6px; width: 14px; height: 14px; border-radius: 50%; background: #6c7a70"></div>
+<div style="position: absolute; left: 80%; top: 6px; width: 14px; height: 14px; border-radius: 50%; background: #f2a14a"></div>
+</div>
+<div class="m" style="position: relative; height: 14px; font-size: 11px; color: #8a8f85">
+<span style="position: absolute; left: 0">cost 0</span>
+<span style="position: absolute; left: 66%">205</span>
+<span style="position: absolute; left: 75.6%; color: #ecebe4">225</span>
+<span style="position: absolute; left: 86%; color: #f2a14a">240</span>
+</div>
+</div>
+</div>
+
+<div class="panel">
+<span class="cap">Return · Frame_Header</span>
+<div style="display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; gap: 12px">
+<span class="m" style="width: 32px; font-size: 11px; color: #6c7269">213</span>
+<div style="display: flex; gap: 4px">
+<span class="slot m" style="background: #3d4841; color: #ecebe4; box-shadow: none">rax</span>
+<span class="slot m" style="background: #3d4841; color: #ecebe4; box-shadow: none">rdx</span>
+</div>
+<span class="m" style="font-size: 13px; color: #aeb2a8">16 B</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px">
+<span class="m" style="width: 32px; font-size: 11px; color: #aeb2a8">214</span>
+<div style="display: flex; gap: 4px">
+<span class="slot m" style="box-shadow: inset 0 0 0 1px #3a403b; border: 1px dashed #4a524b">rax</span>
+<span class="slot m" style="box-shadow: inset 0 0 0 1px #3a403b; border: 1px dashed #4a524b">rdx</span>
+</div>
+<span class="m" style="font-size: 13px; color: #f2a14a">24 B</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 32px"></span>
+<span class="slot m" style="width: 60px; background: #3d4841; color: #ecebe4; box-shadow: none">rdi</span>
+<svg width="36" height="12" viewBox="0 0 36 12" fill="none" stroke="#f2a14a" stroke-width="1.5" aria-hidden="true"><path d="M0 6h32M27 1l5 5-5 5"></path></svg>
+<span class="slot m" style="width: 128px; box-shadow: inset 0 0 0 1.5px #f2a14a; color: #f2a14a">stack · 24 B</span>
+</div>
+</div>
+</div>
+
+<div class="panel">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span class="cap">Scenario · decode_10k</span><span class="m" style="font-size: 11px; color: #6c7269">callgrind</span></div>
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div class="pair">
+<div style="display: flex; justify-content: space-between" class="m"><span style="font-size: 12px; color: #aeb2a8">instr</span><span style="font-size: 13px; color: #f2a14a">+1.9%</span></div>
+<span class="b" style="width: 98%; background: #56625a"></span>
+<span class="b" style="width: 100%; background: #f2a14a"></span>
+</div>
+<div class="pair">
+<div style="display: flex; justify-content: space-between" class="m"><span style="font-size: 12px; color: #aeb2a8">L1d miss</span><span style="font-size: 13px; color: #f2a14a">+42%</span></div>
+<span class="b" style="width: 70%; background: #56625a"></span>
+<span class="b" style="width: 100%; background: #f2a14a"></span>
+</div>
+<div class="pair">
+<div style="display: flex; justify-content: space-between" class="m"><span style="font-size: 12px; color: #aeb2a8">calls</span><span style="font-size: 13px; color: #f2a14a">0 → 10k</span></div>
+<span class="b" style="width: 2px; background: #56625a"></span>
+<span class="b" style="width: 100%; background: #f2a14a"></span>
+</div>
+</div>
+</div>
+
+</div>
+
+<div class="m" style="display: flex; gap: 20px; align-items: center; font-size: 12px; color: #8a8f85">
+<span style="display: flex; gap: 6px; align-items: center"><span class="i alu"></span>op</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="i mem"></span>load / store</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="i br"></span>branch</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="i call"></span>call / ret</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="i n alu"></span>new</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="i mem mod"></span>changed</span>
+<button class="m" style="margin-left: auto; min-height: 44px; padding: 0 16px; border: 0; border-radius: 6px; background: #1b1f1c; box-shadow: inset 0 0 0 1px #3a423c; color: #aeb2a8; font-size: 12px">show asm</button>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const K = { a: 'alu', m: 'mem', b: 'br', c: 'call' };
+    const ops = (s) => s.split(' ').filter(Boolean).map((t) => {
+      const flag = t[0] === '+' ? ' n' : (t[0] === '~' ? ' mod' : '');
+      const k = flag ? t.slice(1) : t;
+      return { c: 'i ' + K[k] + flag };
+    });
+    const R = (n, code, old, now, d, hot) => ({ n: n, code: code, old: ops(old), now: ops(now), d: d || '', cls: hot ? 'row hot' : 'row' });
+    const rows = [
+      R('13', '    kind      := buf[offset]', 'a b m', 'a b m'),
+      R('14', '    length    := endian.unchecked_get_u32le(buf[offset+1:…', 'a a b m', 'a a b m'),
+      R('15', '    flags     := buf[offset+5]', '', '+a +a +b +m', '+4', true),
+      R('16', '    stream_id := endian.unchecked_get_u64le(buf[offset+6:…', 'a a b m', 'a a b m'),
+      R('17', '    return {kind, length, flags, stream_id}', 'm m m', 'm m +m ~m +a +c', '+3', true),
+      R('cold', '    runtime.bounds_check_error …', 'a c a c a c', 'a c a c a c +a +c', '+2', true)
+    ];
+    return { rows: rows };
+  }
+}
+</script>
+</body>
+</html>

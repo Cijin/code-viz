@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Safety lens</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0d0f0e;font-family:'IBM Plex Sans Condensed','Arial Narrow',sans-serif;color:#ecebe4}
+a{color:#ecebe4;text-decoration:none}a:hover{color:#ffffff}
+.m{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace}
+.cap{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#8a8f85;font-weight:600}
+.tab{padding:10px 14px;border-radius:6px;font-size:15px;font-weight:500;color:#aeb2a8}
+.tab:hover{color:#ecebe4;background:#1b1f1c}
+.tab.on{color:#ecebe4;background:#232824;box-shadow:inset 0 -2px 0 #ecebe4}
+.panel{display:flex;flex-direction:column;gap:14px;padding:16px;background:#171a18;border-radius:8px;box-shadow:inset 0 0 0 1px #262b27}
+.rung{display:flex;flex-direction:column;gap:14px;padding:16px;background:#171a18;border-radius:8px;box-shadow:inset 0 0 0 1px #262b27}
+.pp{display:block;width:18px;height:18px;border-radius:50%;box-sizing:border-box;box-shadow:inset 0 0 0 2px #aeb2a8;flex-shrink:0}
+.pp.new{background:#f2a14a;box-shadow:none}
+.pp.good{box-shadow:inset 0 0 0 2px #5ea8ee}
+.pp.gh{box-shadow:none;border:1.5px dashed #5c625b}
+.sm .pp{width:14px;height:14px}
+.sl{display:flex;height:34px;align-items:center;font-size:12.5px;white-space:pre;color:#8f948a}
+.sl .n{width:30px;color:#5c625b}
+.sl .mk{width:30px;display:flex;justify-content:center}
+.sl.hot{color:#ecebe4;background:rgba(242,161,74,.10)}
+.sl.hot .n{color:#f2a14a}
+.stat{display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:6px;background:#171a18;box-shadow:inset 0 0 0 1px #262b27}
+.tot{font-size:12px;color:#6c7269}
+</style>
+</helmet>
+<div style="width: 1440px; height: 960px; box-sizing: border-box; padding: 24px 32px 28px; display: flex; flex-direction: column; gap: 18px; background: #111311">
+
+<div style="display: flex; align-items: center; justify-content: space-between; height: 44px">
+<div style="display: flex; align-items: center; gap: 24px">
+<span class="m" style="font-size: 14px; font-weight: 600; letter-spacing: .08em">SUBSTRATE</span>
+<nav style="display: flex; gap: 4px">
+<a href="Main.dc.html" class="tab">Glance</a>
+<a href="Blocks.dc.html" class="tab">Blocks</a>
+<a href="Execution.dc.html" class="tab">Execution</a>
+<a href="Memory.dc.html" class="tab">Memory</a>
+<a href="Safety.dc.html" class="tab on">Safety</a>
+</nav>
+</div>
+<span class="m" style="font-size: 13px; color: #8a8f85">213 → 214 · -o:speed</span>
+</div>
+
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span class="m" style="font-size: 30px; font-weight: 600">parse_header</span>
+<div class="stat"><span class="pp new"></span><span class="m" style="font-size: 22px; font-weight: 600; color: #f2a14a">+1</span><span class="m" style="font-size: 13px; color: #8a8f85">3→4</span></div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+<div class="rung">
+<div style="display: flex; justify-content: space-between"><span class="cap">Compiler</span><span class="m tot">all</span></div>
+<svg width="28" height="22" viewBox="0 0 28 22" fill="none" stroke="#aeb2a8" stroke-width="2.5" aria-hidden="true"><path d="M2 11l8 8L26 3"></path></svg>
+</div>
+<div class="rung" style="box-shadow: inset 0 0 0 1.5px #f2a14a">
+<div style="display: flex; justify-content: space-between"><span class="cap">Run-time check</span><span class="m tot">crate 38 <span style="color: #f2a14a">+1</span></span></div>
+<div style="display: flex; gap: 8px; align-items: center"><span class="pp"></span><span class="pp"></span><span class="pp new"></span><span class="pp"></span></div>
+</div>
+<div class="rung">
+<div style="display: flex; justify-content: space-between"><span class="cap">Opted out</span><span class="m tot">crate 2</span></div>
+<div style="display: flex; gap: 8px; align-items: center"><span class="m" style="font-size: 22px; color: #6c7269; line-height: 1">0</span></div>
+</div>
+<div class="rung">
+<div style="display: flex; justify-content: space-between"><span class="cap">Can wrap</span><span class="m tot">crate 6</span></div>
+<div style="display: flex; gap: 8px; align-items: center">
+<span class="m" style="font-size: 22px; color: #6c7269; line-height: 1">0</span>
+<span class="m" style="font-size: 12px; padding: 3px 8px; border-radius: 4px; background: #232824; color: #aeb2a8">+5 ⊂ L13</span>
+</div>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 88px minmax(0, 1fr); gap: 16px; flex-grow: 1">
+
+<div class="panel">
+<div style="display: flex; justify-content: space-between; align-items: center"><span class="m" style="font-size: 13px; color: #f2a14a">214</span><span class="m" style="font-size: 22px; font-weight: 600; color: #f2a14a">4</span></div>
+<div class="m" style="display: flex; flex-direction: column">
+<div class="sl"><span class="n">12</span><span class="mk"></span><span>parse_header :: proc(buf: []u8, offset: int) -&gt; Frame_Header {</span></div>
+<div class="sl"><span class="n">13</span><span class="mk"><span class="pp"></span></span><span>    kind      := buf[offset]</span></div>
+<div class="sl"><span class="n">14</span><span class="mk"><span class="pp"></span></span><span>    length    := endian.unchecked_get_u32le(buf[offset+1:offset+5])</span></div>
+<div class="sl hot"><span class="n">15</span><span class="mk"><span class="pp new"></span></span><span>    flags     := buf[offset+5]</span></div>
+<div class="sl"><span class="n">16</span><span class="mk"><span class="pp"></span></span><span>    stream_id := endian.unchecked_get_u64le(buf[offset+6:offset+14])</span></div>
+<div class="sl"><span class="n">17</span><span class="mk"></span><span>    return {kind, length, flags, stream_id}</span></div>
+<div class="sl"><span class="n">18</span><span class="mk"></span><span>}</span></div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px">
+<span class="m" style="font-size: 20px; color: #f2a14a">4</span>
+<svg width="48" height="14" viewBox="0 0 48 14" fill="none" stroke="#5ea8ee" stroke-width="1.5" aria-hidden="true"><path d="M0 7h44M38 1l6 6-6 6"></path></svg>
+<span class="m" style="font-size: 20px; color: #5ea8ee">1</span>
+</div>
+
+<div class="panel" style="box-shadow: inset 0 0 0 1px #2c4256">
+<div style="display: flex; justify-content: space-between; align-items: center"><span class="m" style="font-size: 13px; color: #5ea8ee">fix</span><span class="m" style="font-size: 22px; font-weight: 600; color: #5ea8ee">1</span></div>
+<div class="m" style="display: flex; flex-direction: column">
+<div class="sl"><span class="n">12</span><span class="mk"></span><span>parse_header :: proc(buf: []u8, offset: int) -&gt; Frame_Header {</span></div>
+<div class="sl" style="color: #ecebe4"><span class="n">13</span><span class="mk"><span class="pp good"></span></span><span>    h := buf[offset:offset+14]</span></div>
+<div class="sl"><span class="n">14</span><span class="mk"></span><span>    return {</span></div>
+<div class="sl"><span class="n">15</span><span class="mk"><span class="pp gh"></span></span><span>        kind      = h[0],</span></div>
+<div class="sl"><span class="n">16</span><span class="mk"><span class="pp gh"></span></span><span>        length    = endian.unchecked_get_u32le(h[1:5]),</span></div>
+<div class="sl"><span class="n">17</span><span class="mk"><span class="pp gh"></span></span><span>        flags     = h[5],</span></div>
+<div class="sl"><span class="n">18</span><span class="mk"><span class="pp gh"></span></span><span>        stream_id = endian.unchecked_get_u64le(h[6:14]),</span></div>
+<div class="sl"><span class="n">19</span><span class="mk"></span><span>    }</span></div>
+</div>
+<button class="m" style="margin-top: auto; min-height: 44px; border: 0; border-radius: 6px; background: #1d2a36; box-shadow: inset 0 0 0 1px #5ea8ee; color: #cfe6fb; font-size: 13px">apply</button>
+</div>
+
+</div>
+
+<div style="display: flex; gap: 16px; align-items: center">
+<div class="stat" style="gap: 12px">
+<span class="m" style="font-size: 12px; color: #aeb2a8">asan · odin test</span>
+<div style="width: 180px; height: 6px; border-radius: 3px; background: #262b27; display: flex"><span style="width: 64%; background: #aeb2a8; border-radius: 3px"></span></div>
+<span class="m" style="font-size: 12px; color: #aeb2a8">9/14</span>
+</div>
+<div class="stat"><span class="m" style="font-size: 12px; color: #aeb2a8">vet</span><span class="m" style="font-size: 14px; color: #8a8f85">= 0</span></div>
+<div class="m sm" style="margin-left: auto; display: flex; gap: 18px; align-items: center; font-size: 12px; color: #8a8f85">
+<span style="display: flex; gap: 6px; align-items: center"><span class="pp"></span>check</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="pp new"></span>new</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="pp gh"></span>removed by optimizer</span>
+</div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
