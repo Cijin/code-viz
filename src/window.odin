@@ -5,15 +5,11 @@ import "core:strings"
 import sdl "vendor:sdl3"
 import ttf "vendor:sdl3/ttf"
 
-// One SDL window with its own renderer, text engine and caches. The glance
-// panel sits beside the editor; lenses open in a second, larger window.
+// The app window with its renderer, text engine and caches. Glance, Blocks
+// and the lenses are tabs in this one window.
 
-Win_Kind :: enum u8 {
+View :: enum u8 {
 	Glance,
-	Lens,
-}
-
-Lens_View :: enum u8 {
 	Blocks,
 	Execution,
 	Memory,
@@ -22,8 +18,7 @@ Lens_View :: enum u8 {
 
 Win :: struct {
 	gfx:     Gfx,
-	kind:    Win_Kind,
-	view:     Lens_View, // lens windows only
+	view:     View,
 	show_asm: bool,      // Execution lens: instruction text instead of glyphs
 	pinned:   int,       // Blocks: row pinned by a click; -1 = the largest change
 	id:      sdl.WindowID,
@@ -33,9 +28,9 @@ Win :: struct {
 	hits:    [dynamic]Hit,
 }
 
-win_create :: proc(kind: Win_Kind, title: string, w, h: f32) -> ^Win {
+win_create :: proc(title: string, w, h: f32) -> ^Win {
 	win := new(Win)
-	win.kind = kind
+	win.pinned = -1
 	win.w, win.h = w, h
 	ctitle := strings.clone_to_cstring(title, context.temp_allocator)
 	win.gfx.window = sdl.CreateWindow(ctitle, i32(w), i32(h), {.RESIZABLE, .HIGH_PIXEL_DENSITY})

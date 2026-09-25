@@ -49,25 +49,6 @@ status_color :: proc(s: snap.Build_Status) -> Color {
 	return TEXT_2
 }
 
-// Header: SUBSTRATE wordmark and the build chip (opens Blocks).
-@(private = "file")
-draw_glance_header :: proc(m: ^snap.Glance, w: f32, hits: ^[dynamic]Hit) {
-	cy := HEADER_H / 2
-	draw_tracked(.Mono_SemiBold, 13, 0.08, "SUBSTRATE", 16, cy, TEXT)
-
-	label := m.to == 0 ? "blocks" : fmt.tprintf("%d → %d · blocks", m.from, m.to)
-	tw, _ := text_size(.Mono_Regular, 12, label)
-	chip := Rect{0, 0, 10 + 8 + 8 + tw + 10, 28}
-	chip.x = w - 16 - chip.w
-	chip.y = cy - chip.h / 2
-	stroke_rrect(chip, 5, 1, LINE_STRONG)
-	fill_circle(chip.x + 10 + 4, cy, 8, status_color(m.status))
-	draw_text(.Mono_Regular, 12, label, chip.x + 10 + 8 + 8, cy, TEXT_2)
-	append(hits, Hit{rect = chip, action = .Open_Blocks})
-
-	fill_rect({0, HEADER_H - 1, w, 1}, BG_RAISED)
-}
-
 // Lane card frame plus its first row (caps label, main symbol). Returns the
 // y where the lane's content starts.
 @(private = "file")
@@ -335,13 +316,13 @@ draw_glance_footer :: proc(m: ^snap.Glance, w, h: f32) {
 	}
 }
 
-draw_glance :: proc(m: ^snap.Glance, w, h: f32, mx, my: f32, hits: ^[dynamic]Hit) {
-	fill_rect({0, 0, w, h}, BG_WINDOW)
-	draw_glance_header(m, w, hits)
+// The glance body below the tab row (which carries the build status).
+draw_glance :: proc(m: ^snap.Glance, top, w, h: f32, mx, my: f32, hits: ^[dynamic]Hit) {
+	fill_rect({0, top - 1, w, 1}, BG_RAISED)
 
 	x := f32(12)
 	lane_w := w - 24
-	y := HEADER_H + 12
+	y := top + 12
 	inner_w := lane_w - 2 * LANE_PAD_X
 
 	lanes := [3]struct {

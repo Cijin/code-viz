@@ -13,8 +13,7 @@ import snap "snapshot"
 App :: struct {
 	project_dir:     string,
 	screenshot_path: string,
-	glance_win:      ^Win,
-	lens_win:        ^Win,
+	win:             ^Win,
 	pipe:            pipeline.Pipeline,
 	pipe_running:    bool,
 	status:          snap.Build_Status,
@@ -70,7 +69,7 @@ drain_pipeline :: proc() -> (redraw: bool) {
 			app.status = .Ok
 			green = true
 			// A new build re-pins the largest change.
-			if app.lens_win != nil do app.lens_win.pinned = -1
+			if app.win != nil do app.win.pinned = -1
 			// One set of history dots per green build (not per redraw).
 			if app.delta.from != app.delta.to {
 				rebuild_glance()
@@ -97,8 +96,7 @@ drain_pipeline :: proc() -> (redraw: bool) {
 }
 
 win_for_id :: proc(id: sdl.WindowID) -> ^Win {
-	if app.glance_win != nil && app.glance_win.id == id do return app.glance_win
-	if app.lens_win != nil && app.lens_win.id == id do return app.lens_win
+	if app.win != nil && app.win.id == id do return app.win
 	return nil
 }
 
@@ -110,38 +108,33 @@ render_win :: proc(win: ^Win) {
 	clear(&win.hits)
 	sdl.SetRenderDrawColor(g.renderer, BG_DESKTOP.r, BG_DESKTOP.g, BG_DESKTOP.b, 255)
 	sdl.RenderClear(g.renderer)
-	switch win.kind {
+	d := app.delta != nil ? &app.delta.delta : &EMPTY_DELTA
+	switch win.view {
 	case .Glance:
-		draw_glance(&app.glance, win.w, win.h, win.mouse_x, win.mouse_y, &win.hits)
-	case .Lens:
-		d := app.delta != nil ? &app.delta.delta : &EMPTY_DELTA
-		switch win.view {
-		case .Memory:
-			draw_memory_lens(win, d, &win.hits)
-		case .Execution:
-			draw_execution_lens(win, d, &win.hits)
-		case .Safety:
-			draw_safety_lens(win, d)
-		case .Blocks:
-			draw_blocks_view(win, d, &win.hits)
-		}
+		// Without a project (M0 sample) the ids come from the glance model.
+		from, to := u32(app.glance.from), u32(app.glance.to)
+		top := draw_tabs(win, from, to, "", status_color(app.glance.status))
+		draw_glance(&app.glance, top, win.w, win.h, win.mouse_x, win.mouse_y, &win.hits)
+	case .Memory:
+		draw_memory_lens(win, d, &win.hits)
+	case .Execution:
+		draw_execution_lens(win, d, &win.hits)
+	case .Safety:
+		draw_safety_lens(win, d)
+	case .Blocks:
+		draw_blocks_view(win, d, &win.hits)
 	}
 	sdl.RenderPresent(g.renderer)
 }
 
 render_all :: proc() {
-	render_win(app.glance_win)
-	render_win(app.lens_win)
+	render_win(app.win)
 }
 
-open_lens :: proc(view: Lens_View) {
-	if app.lens_win == nil {
-		app.lens_win = win_create(.Lens, "Substrate", LENS_W, LENS_H)
-		if app.lens_win == nil do return
-	}
-	app.lens_win.view = view
-	app.lens_win.pinned = -1
-	sdl.RaiseWindow(app.lens_win.gfx.window)
+show_view :: proc(view: View) {
+	if app.win == nil do return
+	app.win.view = view
+	app.win.pinned = -1
 }
 
 Fix_Job :: struct {
@@ -188,18 +181,17 @@ apply_fix :: proc() {
 handle_action :: proc(a: Action, index := 0) {
 	switch a {
 	case .None:
-	case .Open_Glance:
-		if app.glance_win != nil do sdl.RaiseWindow(app.glance_win.gfx.window)
-	case .Open_Blocks:    open_lens(.Blocks)
-	case .Open_Execution: open_lens(.Execution)
-	case .Open_Memory:    open_lens(.Memory)
-	case .Open_Safety:    open_lens(.Safety)
+	case .Open_Glance:    show_view(.Glance)
+	case .Open_Blocks:    show_view(.Blocks)
+	case .Open_Execution: show_view(.Execution)
+	case .Open_Memory:    show_view(.Memory)
+	case .Open_Safety:    show_view(.Safety)
 	case .Apply_Fix:      apply_fix()
 	case .Toggle_Asm:
-		if app.lens_win != nil do app.lens_win.show_asm = !app.lens_win.show_asm
+		if app.win != nil do app.win.show_asm = !app.win.show_asm
 	case .Select_Block:
 		// SPEC §8.6: a click pins the row (until the next build).
-		if app.lens_win != nil do app.lens_win.pinned = index
+		if app.win != nil do app.win.pinned = index
 	}
 }
 
@@ -254,10 +246,18 @@ main :: proc() {
 	font_dir = find_font_dir()
 	_ = virtual.arena_init_growing(&app.glance_arena)
 
-	app.glance_win = win_create(.Glance, "Substrate", GLANCE_W, GLANCE_H)
-	if app.glance_win == nil do os.exit(1)
-	defer win_destroy(app.glance_win)
-	defer win_destroy(app.lens_win)
+	// One window; the lenses need the room of the mockups' 1440×960 frame,
+	// clamped to the display.
+	w, h := LENS_W, LENS_H
+	bounds: sdl.Rect
+	if sdl.GetDisplayUsableBounds(sdl.GetPrimaryDisplay(), &bounds) {
+		w = min(w, f32(bounds.w) - 40)
+		h = min(h, f32(bounds.h) - 40)
+	}
+	if app.screenshot_path != "" do w, h = GLANCE_W, GLANCE_H
+	app.win = win_create("Substrate", w, h)
+	if app.win == nil do os.exit(1)
+	defer win_destroy(app.win)
 
 	// Without a project, show the M0 sample so the glance matches the mockup.
 	if app.project_dir == "" {
@@ -280,7 +280,7 @@ main :: proc() {
 
 	render_all()
 	if app.screenshot_path != "" {
-		os.exit(save_screenshot(app.glance_win, app.screenshot_path) ? 0 : 1)
+		os.exit(save_screenshot(app.win, app.screenshot_path) ? 0 : 1)
 	}
 
 	// Draw only on events: input, resize, or worker results. Idle CPU ~0%.
@@ -295,12 +295,7 @@ main :: proc() {
 			case sdl.EventType(wake_event):
 				if app.pipe_running && drain_pipeline() do redraw = true
 			case .WINDOW_CLOSE_REQUESTED:
-				if win := win_for_id(ev.window.windowID); win != nil && win == app.lens_win {
-					win_destroy(app.lens_win)
-					app.lens_win = nil
-				} else {
-					return
-				}
+				return
 			case .WINDOW_RESIZED, .WINDOW_PIXEL_SIZE_CHANGED, .WINDOW_DISPLAY_SCALE_CHANGED:
 				if win := win_for_id(ev.window.windowID); win != nil do win_update_scale(win)
 				redraw = true

@@ -39,7 +39,6 @@ LENS_TITLE    :: f32(30)
 // SPEC §8.2 / Main.dc.html layout values.
 GLANCE_W        :: f32(468)
 GLANCE_H        :: f32(860)
-HEADER_H        :: f32(40)
 LANE_PAD_Y      :: f32(16)
 LANE_PAD_X      :: f32(18)
 LANE_RADIUS     :: f32(8)
