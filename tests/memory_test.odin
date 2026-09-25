@@ -127,10 +127,10 @@ real_build_memory_test :: proc(t: ^testing.T) {
 		testing.expect(t, err == nil && state.success)
 		abs, _ := os.get_absolute_path(fixture, context.temp_allocator)
 		start := time.tick_now()
-		types, _, ok := analyze.analyze_dwarf(out, abs, context.temp_allocator)
+		res, ok := analyze.analyze_dwarf(out, abs, context.temp_allocator)
 		fmt.printf("T0 type layout (%s): %.1f ms\n", fixture[len(fixture) - 4:], time.duration_milliseconds(time.tick_since(start)))
 		testing.expect(t, ok)
-		sizes[i] = types["frame::Frame_Header"].size
+		sizes[i] = res.types["frame::Frame_Header"].size
 	}
 	testing.expect_value(t, sizes[0], 16)
 	testing.expect_value(t, sizes[1], 24)

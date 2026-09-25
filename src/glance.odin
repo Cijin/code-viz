@@ -10,6 +10,7 @@ Action :: enum u8 {
 	None,
 	Open_Glance,
 	Apply_Fix,
+	Toggle_Asm,
 	Open_Blocks,
 	Open_Execution,
 	Open_Memory,

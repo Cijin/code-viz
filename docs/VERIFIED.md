@@ -62,3 +62,20 @@ Build command: `odin build <pkg> -o:minimal -debug -build-mode:test -out:<cache>
 SPEC §7.3 says to sort fields by alignment, largest first. For v214 that gives `stream_id@0, length@8, kind@12, flags@13`. `fixtures/expected.md` (exact) and `Memory.dc.html` show `kind@0, flags@1, length@4, stream_id@8`. Both come to 16 B with 2 B of padding.
 
 The suggestion keeps the declared order and moves later, smaller fields into the holes that alignment leaves. The alignment sort is the fallback when it saves more bytes. On ties, hole filling wins because it is the smaller source edit, and the `apply` button rewrites only the field lines.
+
+## M3 finding: extra instructions beyond `flags` and `return` at `-o:minimal`
+
+v213 → v214 `parse_header`, per line (old → new instruction count):
+
+| Line | Old → new |
+|---|---|
+| 24 (entry) | 13 → 14 |
+| 25 `kind` | 11 → 13 |
+| 26 `length` | 22 → 21 |
+| 27 `flags` | 0 → 12 |
+| 28 `stream_id` | 12 → 15 |
+| 29 `return` | 5 → 17 |
+
+The largest additions are on `flags` and `return`, as `expected.md` says. The small ones are real, not noise. For example, the entry line now stores `x8`, the hidden result pointer that the 24 B return needs (item 6). The M3 test therefore asserts that `flags` and `return` are the two lines with the most new instructions and hold at least 70% of them.
+
+Per-line matching uses the longest common subsequence of instruction kinds ("by kind, in order"). A greedy first match counted reordered spills as removed plus new.

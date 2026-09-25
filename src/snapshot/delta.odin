@@ -10,6 +10,8 @@ import "core:strings"
 Delta :: struct {
 	from, to: Build_Id, // equal on the first build
 	types:    []Type_Delta,
+	procs:    []Proc_Delta, // changed first
+	inline:   []Inline_Change,
 }
 
 clone_layout :: proc(t: Type_Layout, allocator := context.allocator) -> Type_Layout {
@@ -61,6 +63,8 @@ diff :: proc(prev, curr: ^Snapshot, allocator := context.allocator) -> Delta {
 		})
 	}
 	d.types = types[:]
+	d.procs = diff_procs(prev, curr, allocator)
+	d.inline = diff_inlining(prev, curr, allocator)
 	return d
 }
 
@@ -84,13 +88,32 @@ build_glance :: proc(d: ^Delta, history: ^[dynamic]Build_Dots, allocator := cont
 		if new, ok := td.new.?; ok do g.memory.new_cells = byte_cells(new, td.new_fields, allocator)
 	}
 
+	if len(d.procs) > 0 && d.procs[0].changed {
+		pd := d.procs[0]
+		g.exec.changed = true
+		g.exec.symbol = short_name(pd.symbol)
+		g.exec.delta = pd.new_count - pd.old_count
+		g.exec.glyphs = pd.glyphs
+		for ic in d.inline {
+			if ic.caller == pd.symbol || ic.callee == pd.symbol {
+				g.exec.inline = Inline_Change{
+					caller      = short_name(ic.caller),
+					callee      = short_name(ic.callee),
+					was_inlined = ic.was_inlined,
+					now_inlined = ic.now_inlined,
+				}
+				break
+			}
+		}
+	}
+
 	quiet := make([dynamic]string, allocator)
 	append(&quiet, "stack", "heap", "opt-out", "vet")
 	g.quiet = quiet[:]
 
 	if d.from != d.to {
 		for &b in history do b.current = false
-		append(history, Build_Dots{e = .Neutral, m = dot_for(g.memory.delta), s = .Neutral, current = true})
+		append(history, Build_Dots{e = dot_for(g.exec.delta), m = dot_for(g.memory.delta), s = .Neutral, current = true})
 		for len(history) > 16 do ordered_remove(history, 0)
 	}
 	g.builds = history[:]

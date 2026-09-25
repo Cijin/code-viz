@@ -25,10 +25,13 @@ Insn :: struct {
 }
 
 Proc_Code :: struct {
-	symbol:  string,
-	size:    int, // bytes of machine code
-	insns:   []Insn,
-	inlined: []string, // callee names inlined into this proc (from DWARF)
+	symbol:      string,
+	size:        int, // bytes of machine code
+	insns:       []Insn,
+	inlined:     []string, // callee names inlined into this proc (from DWARF)
+	pos:         Source_Pos, // declaration (from DWARF)
+	return_type: string,
+	return_size: int, // bytes; 0 when the proc returns nothing
 }
 
 Field :: struct {

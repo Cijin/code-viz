@@ -1,0 +1,389 @@
+
+app:	file format mach-o arm64
+
+Disassembly of section __TEXT,__text:
+
+0000000100015130 <_frame::parse_header>:
+; frame::parse_header():
+; /project/frame.odin:24
+100015130:     	sub	sp, sp, #0x80
+100015134:     	stp	x29, x30, [sp, #0x70]
+100015138:     	str	x8, [sp, #0x68]
+10001513c:     	str	x0, [sp]
+100015140:     	mov	x5, x1
+100015144:     	str	x5, [sp, #0x40]
+100015148:     	mov	x4, x2
+10001514c:     	str	x4, [sp, #0x20]
+100015150:     	adrp	x0, 0x10004a000 <_runtime::make_map_expr_error_loc.handle_error-0+0x8>
+100015154:     	add	x0, x0, #0x987
+100015158:     	str	x0, [sp, #0x28]
+10001515c:     	mov	w8, #0x3a               ; =58
+100015160:     	mov	w1, w8
+100015164:     	str	x1, [sp, #0x30]
+; /project/frame.odin:25
+100015168:     	mov	w2, #0x19               ; =25
+10001516c:     	mov	w3, #0x13               ; =19
+100015170:     	str	w3, [sp, #0x14]
+100015174:     	bl	0x100040348 <_runtime::bounds_check_error>
+100015178:     	ldr	x8, [sp]
+10001517c:     	ldr	x2, [sp, #0x20]
+100015180:     	ldr	x0, [sp, #0x28]
+100015184:     	ldr	x1, [sp, #0x30]
+100015188:     	ldr	x6, [sp, #0x40]
+10001518c:     	str	x8, [sp, #0x50]
+100015190:     	add	x8, x8, x2
+100015194:     	ldrb	w8, [x8]
+100015198:     	str	w8, [sp, #0x5c]
+; /project/frame.odin:26
+10001519c:     	add	x4, x2, #0x1
+1000151a0:     	str	x4, [sp, #0x8]
+1000151a4:     	add	x5, x2, #0x5
+1000151a8:     	str	x5, [sp, #0x18]
+1000151ac:     	mov	w2, #0x1a               ; =26
+1000151b0:     	mov	w3, #0x2d               ; =45
+1000151b4:     	str	w3, [sp, #0x3c]
+1000151b8:     	bl	0x100040620 <_runtime::slice_expr_error_lo_hi>
+1000151bc:     	ldr	x8, [sp, #0x8]
+1000151c0:     	ldr	x0, [sp, #0x50]
+1000151c4:     	add	x0, x0, x8
+1000151c8:     	mov	w8, #0x4                ; =4
+1000151cc:     	mov	w1, w8
+1000151d0:     	bl	0x10002d9dc <_encoding_endian::unchecked_get_u32le>
+1000151d4:     	ldr	w3, [sp, #0x14]
+1000151d8:     	ldr	x4, [sp, #0x18]
+1000151dc:     	ldr	x1, [sp, #0x30]
+1000151e0:     	ldr	x5, [sp, #0x40]
+1000151e4:     	mov	w8, w0
+1000151e8:     	ldr	x0, [sp, #0x28]
+1000151ec:     	str	w8, [sp, #0x60]
+; /project/frame.odin:27
+1000151f0:     	mov	w2, #0x1b               ; =27
+1000151f4:     	bl	0x100040348 <_runtime::bounds_check_error>
+1000151f8:     	ldr	x9, [sp, #0x18]
+1000151fc:     	ldr	x2, [sp, #0x20]
+100015200:     	ldr	x0, [sp, #0x28]
+100015204:     	ldr	x1, [sp, #0x30]
+100015208:     	ldr	w3, [sp, #0x3c]
+10001520c:     	ldr	x6, [sp, #0x40]
+100015210:     	ldr	x8, [sp, #0x50]
+100015214:     	add	x8, x8, x9
+100015218:     	ldrb	w8, [x8]
+10001521c:     	str	w8, [sp, #0x64]
+; /project/frame.odin:28
+100015220:     	add	x4, x2, #0x6
+100015224:     	str	x4, [sp, #0x48]
+100015228:     	add	x5, x2, #0xe
+10001522c:     	mov	w2, #0x1c               ; =28
+100015230:     	bl	0x100040620 <_runtime::slice_expr_error_lo_hi>
+100015234:     	ldr	x8, [sp, #0x48]
+100015238:     	ldr	x0, [sp, #0x50]
+10001523c:     	add	x0, x0, x8
+100015240:     	mov	w8, #0x8                ; =8
+100015244:     	mov	w1, w8
+100015248:     	bl	0x10002d9f0 <_encoding_endian::unchecked_get_u64le>
+10001524c:     	ldr	w11, [sp, #0x5c]
+100015250:     	ldr	w10, [sp, #0x60]
+100015254:     	ldr	w9, [sp, #0x64]
+100015258:     	ldr	x8, [sp, #0x68]
+; /project/frame.odin:29
+10001525c:     	strb	w11, [x8]
+100015260:     	strb	wzr, [x8, #0x1]
+100015264:     	strb	wzr, [x8, #0x2]
+100015268:     	strb	wzr, [x8, #0x3]
+10001526c:     	str	w10, [x8, #0x4]
+100015270:     	strb	w9, [x8, #0x8]
+100015274:     	strb	wzr, [x8, #0x9]
+100015278:     	strb	wzr, [x8, #0xa]
+10001527c:     	strb	wzr, [x8, #0xb]
+100015280:     	strb	wzr, [x8, #0xc]
+100015284:     	strb	wzr, [x8, #0xd]
+100015288:     	strb	wzr, [x8, #0xe]
+10001528c:     	strb	wzr, [x8, #0xf]
+100015290:     	str	x0, [x8, #0x10]
+100015294:     	ldp	x29, x30, [sp, #0x70]
+100015298:     	add	sp, sp, #0x80
+10001529c:     	ret
+
+00000001000152a0 <_frame::read_frame>:
+; frame::read_frame():
+; /project/frame.odin:32
+1000152a0:     	sub	sp, sp, #0xb0
+1000152a4:     	stp	x29, x30, [sp, #0xa0]
+1000152a8:     	str	x2, [sp]
+1000152ac:     	str	x1, [sp, #0x18]
+1000152b0:     	str	x0, [sp, #0x8]
+1000152b4:     	str	x8, [sp, #0x78]
+1000152b8:     	mov	x8, xzr
+; /project/frame.odin:33
+1000152bc:     	str	x8, [sp, #0x98]
+1000152c0:     	str	x8, [sp, #0x90]
+1000152c4:     	str	x8, [sp, #0x88]
+1000152c8:     	add	x8, sp, #0x88
+1000152cc:     	bl	0x100015130 <_frame::parse_header>
+1000152d0:     	ldr	x2, [sp]
+1000152d4:     	ldr	x6, [sp, #0x18]
+; /project/frame.odin:33
+1000152d8:     	ldrb	w8, [sp, #0x88]
+1000152dc:     	str	w8, [sp, #0x38]
+1000152e0:     	ldrb	w8, [sp, #0x89]
+1000152e4:     	str	w8, [sp, #0x3c]
+1000152e8:     	ldrb	w8, [sp, #0x8a]
+1000152ec:     	str	w8, [sp, #0x40]
+1000152f0:     	ldrb	w8, [sp, #0x8b]
+1000152f4:     	str	w8, [sp, #0x44]
+1000152f8:     	ldr	w8, [sp, #0x8c]
+1000152fc:     	str	x8, [sp, #0x80]
+100015300:     	ldrb	w8, [sp, #0x90]
+100015304:     	str	w8, [sp, #0x48]
+100015308:     	ldrb	w8, [sp, #0x91]
+10001530c:     	str	w8, [sp, #0x4c]
+100015310:     	ldrb	w8, [sp, #0x92]
+100015314:     	str	w8, [sp, #0x50]
+100015318:     	ldrb	w8, [sp, #0x93]
+10001531c:     	str	w8, [sp, #0x54]
+100015320:     	ldrb	w8, [sp, #0x94]
+100015324:     	str	w8, [sp, #0x58]
+100015328:     	ldrb	w8, [sp, #0x95]
+10001532c:     	str	w8, [sp, #0x5c]
+100015330:     	ldrb	w8, [sp, #0x96]
+100015334:     	str	w8, [sp, #0x60]
+100015338:     	ldrb	w8, [sp, #0x97]
+10001533c:     	str	w8, [sp, #0x64]
+100015340:     	ldr	x8, [sp, #0x98]
+100015344:     	str	x8, [sp, #0x68]
+; /project/frame.odin:34
+100015348:     	add	x4, x2, #0xe
+10001534c:     	str	x4, [sp, #0x10]
+100015350:     	adrp	x0, 0x10004a000 <_runtime::make_map_expr_error_loc.handle_error-0+0x8>
+100015354:     	add	x0, x0, #0x987
+100015358:     	str	x0, [sp, #0x20]
+10001535c:     	mov	w8, #0x3a               ; =58
+100015360:     	mov	w1, w8
+100015364:     	str	x1, [sp, #0x28]
+100015368:     	mov	w2, #0x22               ; =34
+10001536c:     	str	w2, [sp, #0x34]
+100015370:     	mov	w3, #0xf                ; =15
+100015374:     	mov	x5, x6
+100015378:     	bl	0x100040620 <_runtime::slice_expr_error_lo_hi>
+10001537c:     	ldr	x10, [sp, #0x8]
+100015380:     	ldr	x9, [sp, #0x10]
+100015384:     	ldr	x8, [sp, #0x18]
+100015388:     	ldr	x0, [sp, #0x20]
+10001538c:     	ldr	x1, [sp, #0x28]
+100015390:     	ldr	w2, [sp, #0x34]
+100015394:     	ldr	x4, [sp, #0x80]
+100015398:     	add	x10, x10, x9
+10001539c:     	str	x10, [sp, #0x70]
+1000153a0:     	subs	x5, x8, x9
+1000153a4:     	mov	w3, #0x24               ; =36
+1000153a8:     	bl	0x1000405b0 <_runtime::slice_expr_error_hi>
+1000153ac:     	ldr	w5, [sp, #0x38]
+1000153b0:     	ldr	w4, [sp, #0x3c]
+1000153b4:     	ldr	w3, [sp, #0x40]
+1000153b8:     	ldr	w2, [sp, #0x44]
+1000153bc:     	ldr	w1, [sp, #0x48]
+1000153c0:     	ldr	w0, [sp, #0x4c]
+1000153c4:     	ldr	w17, [sp, #0x50]
+1000153c8:     	ldr	w16, [sp, #0x54]
+1000153cc:     	ldr	w15, [sp, #0x58]
+1000153d0:     	ldr	w14, [sp, #0x5c]
+1000153d4:     	ldr	w13, [sp, #0x60]
+1000153d8:     	ldr	w12, [sp, #0x64]
+1000153dc:     	ldr	x11, [sp, #0x68]
+1000153e0:     	ldr	x10, [sp, #0x70]
+1000153e4:     	ldr	x9, [sp, #0x78]
+1000153e8:     	ldr	x8, [sp, #0x80]
+; /project/frame.odin:35
+1000153ec:     	strb	w5, [x9]
+1000153f0:     	strb	w4, [x9, #0x1]
+1000153f4:     	strb	w3, [x9, #0x2]
+1000153f8:     	strb	w2, [x9, #0x3]
+1000153fc:     	mov	w2, w8
+100015400:     	str	w2, [x9, #0x4]
+100015404:     	strb	w1, [x9, #0x8]
+100015408:     	strb	w0, [x9, #0x9]
+10001540c:     	strb	w17, [x9, #0xa]
+100015410:     	strb	w16, [x9, #0xb]
+100015414:     	strb	w15, [x9, #0xc]
+100015418:     	strb	w14, [x9, #0xd]
+10001541c:     	strb	w13, [x9, #0xe]
+100015420:     	strb	w12, [x9, #0xf]
+100015424:     	str	x11, [x9, #0x10]
+100015428:     	str	x10, [x9, #0x18]
+10001542c:     	str	x8, [x9, #0x20]
+100015430:     	ldp	x29, x30, [sp, #0xa0]
+100015434:     	add	sp, sp, #0xb0
+100015438:     	ret
+
+000000010001543c <_frame::decode_10k_frames>:
+; frame::decode_10k_frames():
+; /project/frame.odin:39
+10001543c:     	sub	sp, sp, #0x130
+100015440:     	stp	x28, x27, [sp, #0x110]
+100015444:     	stp	x29, x30, [sp, #0x120]
+100015448:     	mov	x5, x1
+10001544c:     	str	x5, [sp, #0x48]
+100015450:     	str	x0, [sp, #0x40]
+; /project/frame.odin:42
+100015454:     	ldr	x2, [x5, #0x8]
+100015458:     	ldr	x1, [x5]
+10001545c:     	mov	x8, xzr
+100015460:     	str	x8, [sp, #0x60]
+100015464:     	str	x8, [sp, #0x108]
+100015468:     	str	x8, [sp, #0x100]
+10001546c:     	adrp	x3, 0x10005c000 <_write+0x10005c000>
+100015470:     	add	x3, x3, #0x390
+100015474:     	mov	w8, #0xbf20             ; =48928
+100015478:     	movk	w8, #0x2, lsl #16
+10001547c:     	mov	w0, w8
+100015480:     	add	x4, sp, #0x100
+; /project/frame.odin:42
+100015484:     	bl	0x100047cec <_runtime::make_slice:proc(T:$[]u8,len:int,allocator:runtime::Allocator,loc:runtime::Source_Code_Location)->(res:[]u8,err:runtime::Allocator_Error)#optional_ok>
+100015488:     	ldr	x6, [sp, #0x48]
+10001548c:     	ldr	x0, [sp, #0x60]
+100015490:     	ldr	x8, [sp, #0x100]
+100015494:     	str	x8, [sp, #0x50]
+100015498:     	ldr	x1, [sp, #0x108]
+10001549c:     	str	x1, [sp, #0x58]
+; /project/frame.odin:44
+1000154a0:     	ldr	x3, [x6, #0x8]
+1000154a4:     	ldr	x2, [x6]
+1000154a8:     	str	x0, [sp, #0xf0]
+1000154ac:     	movi.2d	v0, #0000000000000000
+1000154b0:     	str	q0, [sp, #0xe0]
+1000154b4:     	str	q0, [sp, #0xd0]
+1000154b8:     	adrp	x4, 0x10005c000 <_write+0x10005c000>
+1000154bc:     	add	x4, x4, #0x3c0
+1000154c0:     	mov	w8, #0x2710             ; =10000
+1000154c4:     	mov	w1, w8
+1000154c8:     	add	x5, sp, #0xd0
+; /project/frame.odin:44
+1000154cc:     	bl	0x100048170 <_runtime::make_dynamic_array_len_cap:proc(T:$[dynamic]frame::Frame_Header,len:int,cap:int,allocator:runtime::Allocator,loc:runtime::Source_Code_Location)->(array:[dynamic]frame::Frame_Header,err:runtime::Allocator_Error)#optional_ok>
+1000154d0:     	ldr	x8, [sp, #0x60]
+1000154d4:     	ldr	x13, [sp, #0xd0]
+1000154d8:     	ldr	x12, [sp, #0xd8]
+1000154dc:     	ldr	x11, [sp, #0xe0]
+1000154e0:     	ldr	x10, [sp, #0xe8]
+1000154e4:     	ldr	x9, [sp, #0xf0]
+1000154e8:     	str	x13, [sp, #0xa8]
+1000154ec:     	add	x13, sp, #0xa8
+1000154f0:     	add	x13, x13, #0x8
+1000154f4:     	str	x13, [sp, #0x68]
+1000154f8:     	str	x12, [sp, #0xb0]
+1000154fc:     	str	x11, [sp, #0xb8]
+100015500:     	str	x10, [sp, #0xc0]
+100015504:     	str	x9, [sp, #0xc8]
+100015508:     	mov	x9, x8
+10001550c:     	str	x9, [sp, #0x70]
+100015510:     	str	x8, [sp, #0x78]
+; /project/frame.odin:46
+100015514:     	b	0x100015518 <_frame::decode_10k_frames+0xdc>
+100015518:     	ldr	x9, [sp, #0x70]
+10001551c:     	ldr	x8, [sp, #0x78]
+100015520:     	str	x8, [sp, #0x30]
+100015524:     	str	x9, [sp, #0x38]
+100015528:     	mov	w9, #0x270f             ; =9999
+; /project/frame.odin:46
+10001552c:     	subs	x8, x8, x9
+100015530:     	b.gt	0x10001562c <_frame::decode_10k_frames+0x1f0>
+100015534:     	b	0x100015538 <_frame::decode_10k_frames+0xfc>
+100015538:     	ldr	x8, [sp, #0x30]
+10001553c:     	ldr	x5, [sp, #0x58]
+; /project/frame.odin:47
+100015540:     	add	x8, x8, x8, lsl #3
+100015544:     	str	x8, [sp]
+100015548:     	lsl	x4, x8, #1
+10001554c:     	str	x4, [sp, #0x20]
+; /project/frame.odin:48
+100015550:     	adrp	x0, 0x10004a000 <_runtime::make_map_expr_error_loc.handle_error-0+0x8>
+100015554:     	add	x0, x0, #0x987
+100015558:     	str	x0, [sp, #0x8]
+10001555c:     	mov	w8, #0x3a               ; =58
+100015560:     	mov	w1, w8
+100015564:     	str	x1, [sp, #0x10]
+100015568:     	mov	w2, #0x30               ; =48
+10001556c:     	mov	w3, #0x7                ; =7
+100015570:     	bl	0x100040348 <_runtime::bounds_check_error>
+100015574:     	ldr	x9, [sp]
+100015578:     	ldr	x0, [sp, #0x8]
+10001557c:     	ldr	x1, [sp, #0x10]
+100015580:     	ldr	x11, [sp, #0x50]
+100015584:     	ldr	x6, [sp, #0x58]
+100015588:     	ldr	x8, [sp, #0x20]
+10001558c:     	mov	w10, #0x1               ; =1
+100015590:     	strb	w10, [x11, x8]
+100015594:     	mov	w4, w10
+; /project/frame.odin:49
+100015598:     	bfi	x4, x9, #1, #63
+10001559c:     	str	x4, [sp, #0x18]
+1000155a0:     	add	x5, x8, #0x5
+1000155a4:     	mov	w2, #0x31               ; =49
+1000155a8:     	mov	w3, #0x21               ; =33
+1000155ac:     	bl	0x100040620 <_runtime::slice_expr_error_lo_hi>
+1000155b0:     	ldr	x9, [sp, #0x18]
+1000155b4:     	ldr	x8, [sp, #0x50]
+1000155b8:     	add	x0, x8, x9
+1000155bc:     	mov	w2, #0x4                ; =4
+1000155c0:     	mov	w1, w2
+1000155c4:     	bl	0x10002da04 <_encoding_endian::unchecked_put_u32le>
+1000155c8:     	ldr	x0, [sp, #0x50]
+1000155cc:     	ldr	x1, [sp, #0x58]
+1000155d0:     	ldr	x2, [sp, #0x20]
+1000155d4:     	ldr	x3, [sp, #0x48]
+1000155d8:     	mov	x8, xzr
+; /project/frame.odin:50
+1000155dc:     	str	x8, [sp, #0xa0]
+1000155e0:     	movi.2d	v0, #0000000000000000
+1000155e4:     	str	q0, [sp, #0x90]
+1000155e8:     	str	q0, [sp, #0x80]
+1000155ec:     	add	x8, sp, #0x80
+1000155f0:     	str	x8, [sp, #0x28]
+1000155f4:     	bl	0x1000152a0 <_frame::read_frame>
+1000155f8:     	ldr	x1, [sp, #0x28]
+1000155fc:     	ldr	x3, [sp, #0x48]
+100015600:     	adrp	x2, 0x10005c000 <_write+0x10005c000>
+100015604:     	add	x2, x2, #0x3f0
+100015608:     	add	x0, sp, #0xa8
+10001560c:     	bl	0x100048a1c <_runtime::append_elem:proc(array:^[dynamic]frame::Frame_Header,arg:frame::Frame_Header,loc:runtime::Source_Code_Location)->(num_appended:int,err:runtime::Allocator_Error)#optional_ok>
+100015610:     	ldr	x8, [sp, #0x30]
+100015614:     	ldr	x9, [sp, #0x38]
+; /project/frame.odin:51
+100015618:     	add	x8, x8, #0x1
+10001561c:     	add	x9, x9, #0x1
+100015620:     	str	x9, [sp, #0x70]
+100015624:     	str	x8, [sp, #0x78]
+100015628:     	b	0x100015518 <_frame::decode_10k_frames+0xdc>
+10001562c:     	ldr	x6, [sp, #0x48]
+100015630:     	ldr	x0, [sp, #0x40]
+100015634:     	ldr	x8, [sp, #0x68]
+; /project/frame.odin:52
+100015638:     	ldr	x1, [x8]
+10001563c:     	adrp	x3, 0x10005c000 <_write+0x10005c000>
+100015640:     	add	x3, x3, #0x420
+100015644:     	adrp	x4, 0x10004a000 <_runtime::make_map_expr_error_loc.handle_error-0+0x8>
+100015648:     	add	x4, x4, #0x9d4
+10001564c:     	mov	w8, #0x2710             ; =10000
+100015650:     	mov	w2, w8
+100015654:     	mov	w8, #0xc                ; =12
+100015658:     	mov	w5, w8
+10001565c:     	bl	0x10002566c <_testing::expect_value:proc(t:^testing::T,value:int,expected:int,loc:runtime::Source_Code_Location,value_expr:string)->(:bool)>
+100015660:     	ldr	x2, [sp, #0x48]
+; /project/frame.odin:45
+100015664:     	adrp	x1, 0x10005c000 <_write+0x10005c000>
+100015668:     	add	x1, x1, #0x450
+10001566c:     	add	x0, sp, #0xa8
+100015670:     	bl	0x10004775c <_runtime::delete_dynamic_array:proc(array:[dynamic]frame::Frame_Header,loc:runtime::Source_Code_Location)->(:runtime::Allocator_Error)>
+100015674:     	ldr	x1, [sp, #0x58]
+100015678:     	ldr	x5, [sp, #0x48]
+10001567c:     	ldr	x0, [sp, #0x50]
+; /project/frame.odin:43
+100015680:     	ldr	x3, [x5, #0x8]
+100015684:     	ldr	x2, [x5]
+100015688:     	adrp	x4, 0x10005c000 <_write+0x10005c000>
+10001568c:     	add	x4, x4, #0x480
+100015690:     	bl	0x100047790 <_runtime::delete_slice:proc(array:[]u8,allocator:runtime::Allocator,loc:runtime::Source_Code_Location)->(:runtime::Allocator_Error)>
+; /project/frame.odin:53
+100015694:     	ldp	x29, x30, [sp, #0x120]
+100015698:     	ldp	x28, x27, [sp, #0x110]
+10001569c:     	add	sp, sp, #0x130
+1000156a0:     	ret

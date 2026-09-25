@@ -98,7 +98,9 @@ render_win :: proc(win: ^Win) {
 		switch win.view {
 		case .Memory:
 			draw_memory_lens(win, d, &win.hits)
-		case .Blocks, .Execution, .Safety:
+		case .Execution:
+			draw_execution_lens(win, d, &win.hits)
+		case .Blocks, .Safety:
 			y := draw_lens_top(win, u32(d.from), u32(d.to), "")
 			draw_lens_empty(win, y, "No data")
 		}
@@ -171,6 +173,8 @@ handle_action :: proc(a: Action) {
 	case .Open_Memory:    open_lens(.Memory)
 	case .Open_Safety:    open_lens(.Safety)
 	case .Apply_Fix:      apply_fix()
+	case .Toggle_Asm:
+		if app.lens_win != nil do app.lens_win.show_asm = !app.lens_win.show_asm
 	}
 }
 

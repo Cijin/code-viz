@@ -120,11 +120,50 @@ run_build :: proc(p: ^Pipeline) {
 @(private)
 run_analyzers :: proc(p: ^Pipeline, s: ^Owned_Snapshot) {
 	s.source = read_sources(p.project_dir)
-	if types, _, ok := analyze.analyze_dwarf(s.artifact, p.project_dir); ok {
-		s.types = types
+	s.procs = make(map[string]snap.Proc_Code)
+
+	dw, dw_ok := analyze.analyze_dwarf(s.artifact, p.project_dir)
+	if dw_ok {
+		s.types = dw.types
 	} else {
 		fmt.eprintln("substrate: llvm-dwarfdump failed or not found; memory lane disabled")
 	}
+
+	code, code_ok := analyze.analyze_code(s.artifact, p.project_dir, source_packages(s.source))
+	if !code_ok {
+		fmt.eprintln("substrate: llvm-objdump/llvm-nm failed or not found; execution lane disabled")
+		return
+	}
+	checks := make([dynamic]snap.Check_Site)
+	for sym, dp in code {
+		pc := dp.code
+		if info, ok := dw.procs[sym]; ok {
+			pc.pos = info.pos
+			pc.return_type = info.return_type
+			pc.return_size = info.return_size
+		}
+		if inl, ok := dw.inlining[sym]; ok do pc.inlined = inl
+		s.procs[sym] = pc
+		append(&checks, ..dp.checks)
+	}
+	s.checks = checks[:]
+}
+
+// Package names declared by the project's files (`package X`).
+source_packages :: proc(source: map[string][]string) -> []string {
+	out := make([dynamic]string, context.temp_allocator)
+	for _, lines in source {
+		for l in lines {
+			t := strings.trim_space(l)
+			if !strings.has_prefix(t, "package ") do continue
+			name := strings.trim_space(t[len("package "):])
+			found := false
+			for o in out do if o == name do found = true
+			if !found do append(&out, name)
+			break
+		}
+	}
+	return out[:]
 }
 
 // file (project-relative) -> lines, for the line mapping (§7.1).

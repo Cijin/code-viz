@@ -264,13 +264,45 @@ extract_inlining :: proc(dies: []Die, allocator := context.allocator) -> map[str
 	return out
 }
 
-// Runs llvm-dwarfdump on the build's DWARF and extracts types and inlining.
-analyze_dwarf :: proc(artifact, root: string, allocator := context.allocator) -> (types: map[string]snap.Type_Layout, inlining: map[string][]string, ok: bool) {
+Proc_Info :: struct {
+	pos:         snap.Source_Pos,
+	return_type: string,
+	return_size: int,
+}
+
+// Declaration and return type of each project procedure.
+extract_proc_info :: proc(dies: []Die, idx: Die_Index, root: string, allocator := context.allocator) -> map[string]Proc_Info {
+	out := make(map[string]Proc_Info, allocator = allocator)
+	for d in dies {
+		if d.tag != .Subprogram || d.name == "" || d.declaration do continue
+		rel := project_relative(d.decl_file, root)
+		if rel == "" || d.name in out do continue
+		out[strings.clone(d.name, allocator)] = Proc_Info{
+			pos         = {file = strings.clone(rel, allocator), line = d.decl_line},
+			return_type = strings.clone(d.type_name, allocator),
+			return_size = d.type_ref != 0 ? type_size(dies, idx, d.type_ref) : 0,
+		}
+	}
+	return out
+}
+
+Dwarf_Result :: struct {
+	types:    map[string]snap.Type_Layout,
+	inlining: map[string][]string,
+	procs:    map[string]Proc_Info,
+}
+
+// Runs llvm-dwarfdump on the build's DWARF and extracts types, inlining and
+// procedure info in one pass.
+analyze_dwarf :: proc(artifact, root: string, allocator := context.allocator) -> (res: Dwarf_Result, ok: bool) {
 	tool := find_tool("llvm-dwarfdump")
 	if tool == "" do return
 	path := dwarf_path(artifact, context.temp_allocator)
 	text := run_tool({tool, "--debug-info", path}, context.temp_allocator) or_return
 	dies := parse_dies(text, context.temp_allocator)
 	idx := index_dies(dies, context.temp_allocator)
-	return extract_types(dies, idx, root, allocator), extract_inlining(dies, allocator), true
+	res.types = extract_types(dies, idx, root, allocator)
+	res.inlining = extract_inlining(dies, allocator)
+	res.procs = extract_proc_info(dies, idx, root, allocator)
+	return res, true
 }

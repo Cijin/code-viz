@@ -23,7 +23,8 @@ Lens_View :: enum u8 {
 Win :: struct {
 	gfx:     Gfx,
 	kind:    Win_Kind,
-	view:    Lens_View, // lens windows only
+	view:     Lens_View, // lens windows only
+	show_asm: bool,      // Execution lens: instruction text instead of glyphs
 	id:      sdl.WindowID,
 	w, h:    f32,
 	mouse_x: f32,
