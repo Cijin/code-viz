@@ -330,5 +330,5 @@ draw_memory_lens :: proc(win: ^Win, d: ^snap.Delta, hits: ^[dynamic]Hit) {
 	stroke_rrect(button, 6, 1, GAIN)
 	aw, _ := text_size(.Mono_Regular, 13, "apply")
 	draw_text(.Mono_Regular, 13, "apply", button.x + (button.w - aw) / 2, button.y + 22, TEXT)
-	append(hits, Hit{button, .Apply_Fix})
+	append(hits, Hit{rect = button, action = .Apply_Fix})
 }

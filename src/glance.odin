@@ -11,6 +11,7 @@ Action :: enum u8 {
 	Open_Glance,
 	Apply_Fix,
 	Toggle_Asm,
+	Select_Block,
 	Open_Blocks,
 	Open_Execution,
 	Open_Memory,
@@ -20,6 +21,7 @@ Action :: enum u8 {
 Hit :: struct {
 	rect:   Rect,
 	action: Action,
+	index:  int, // Select_Block: the row
 }
 
 LINE_H_12 :: f32(16) // line box of 12 px text
@@ -61,7 +63,7 @@ draw_glance_header :: proc(m: ^snap.Glance, w: f32, hits: ^[dynamic]Hit) {
 	stroke_rrect(chip, 5, 1, LINE_STRONG)
 	fill_circle(chip.x + 10 + 4, cy, 8, status_color(m.status))
 	draw_text(.Mono_Regular, 12, label, chip.x + 10 + 8 + 8, cy, TEXT_2)
-	append(hits, Hit{chip, .Open_Blocks})
+	append(hits, Hit{rect = chip, action = .Open_Blocks})
 
 	fill_rect({0, HEADER_H - 1, w, 1}, BG_RAISED)
 }
@@ -365,7 +367,7 @@ draw_glance :: proc(m: ^snap.Glance, w, h: f32, mx, my: f32, hits: ^[dynamic]Hit
 			else do draw_collapsed_lane(r, "Safety", hovered)
 		}
 		if hovered do stroke_rrect(r, LANE_RADIUS, 1, LINE_STRONG)
-		append(hits, Hit{r, lane.action})
+		append(hits, Hit{rect = r, action = lane.action})
 		y += lane.h + LANE_GAP
 	}
 

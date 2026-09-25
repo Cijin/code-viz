@@ -69,6 +69,8 @@ drain_pipeline :: proc() -> (redraw: bool) {
 			ev.delta = nil
 			app.status = .Ok
 			green = true
+			// A new build re-pins the largest change.
+			if app.lens_win != nil do app.lens_win.pinned = -1
 			// One set of history dots per green build (not per redraw).
 			if app.delta.from != app.delta.to {
 				rebuild_glance()
@@ -121,8 +123,7 @@ render_win :: proc(win: ^Win) {
 		case .Safety:
 			draw_safety_lens(win, d)
 		case .Blocks:
-			y := draw_lens_top(win, u32(d.from), u32(d.to), "")
-			draw_lens_empty(win, y, "No data")
+			draw_blocks_view(win, d, &win.hits)
 		}
 	}
 	sdl.RenderPresent(g.renderer)
@@ -139,6 +140,7 @@ open_lens :: proc(view: Lens_View) {
 		if app.lens_win == nil do return
 	}
 	app.lens_win.view = view
+	app.lens_win.pinned = -1
 	sdl.RaiseWindow(app.lens_win.gfx.window)
 }
 
@@ -183,7 +185,7 @@ apply_fix :: proc() {
 	thread.create_and_start_with_poly_data(job, apply_fix_worker, self_cleanup = true)
 }
 
-handle_action :: proc(a: Action) {
+handle_action :: proc(a: Action, index := 0) {
 	switch a {
 	case .None:
 	case .Open_Glance:
@@ -195,6 +197,9 @@ handle_action :: proc(a: Action) {
 	case .Apply_Fix:      apply_fix()
 	case .Toggle_Asm:
 		if app.lens_win != nil do app.lens_win.show_asm = !app.lens_win.show_asm
+	case .Select_Block:
+		// SPEC §8.6: a click pins the row (until the next build).
+		if app.lens_win != nil do app.lens_win.pinned = index
 	}
 }
 
@@ -202,7 +207,7 @@ handle_click :: proc(win: ^Win, x, y: f32) {
 	// Topmost first: later hits are drawn over earlier ones.
 	#reverse for h in win.hits {
 		if rect_contains(h.rect, x, y) {
-			handle_action(h.action)
+			handle_action(h.action, h.index)
 			return
 		}
 	}

@@ -166,3 +166,18 @@ draw_dot :: proc(d: snap.Dot, cx, cy, diameter: f32) {
 	}
 	fill_circle(cx, cy, diameter, c)
 }
+
+// SPEC §3.2 byte bars (9×18): read = hollow, written = filled; `new` uses
+// cost. Returns the width.
+MEM_BAR_W :: f32(9)
+MEM_BAR_H :: f32(18)
+
+draw_mem_bar :: proc(b: snap.Mem_Bar, x, cy: f32) -> f32 {
+	r := Rect{x, cy - MEM_BAR_H / 2, MEM_BAR_W, MEM_BAR_H}
+	if b.store {
+		fill_rrect(r, 1.5, b.new ? COST : FIELD_FILL)
+	} else {
+		stroke_rrect(r, 1.5, 1.5, b.new ? COST : TEXT_3)
+	}
+	return MEM_BAR_W
+}

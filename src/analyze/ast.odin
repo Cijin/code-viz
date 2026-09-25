@@ -22,6 +22,7 @@ Implied_Check :: struct {
 Ast_Result :: struct {
 	implied:  []Implied_Check,
 	opt_outs: []snap.Opt_Out,
+	blocks:   []snap.Block_Range,
 }
 
 @(private = "file")
@@ -108,9 +109,32 @@ visit :: proc(v: ^ast.Visitor, node: ^ast.Node) -> ^ast.Visitor {
 	return v
 }
 
-// Parses one file. Results go to `implied` / `opt_outs` with strings in the
-// temp allocator; analyze_source copies them out.
-parse_source_file :: proc(rel, src: string, implied: ^[dynamic]Implied_Check, opt_outs: ^[dynamic]snap.Opt_Out) -> bool {
+// SPEC §7.4 block ranges: each top-level statement of a procedure body, and
+// each struct declaration.
+@(private = "file")
+collect_blocks :: proc(file: ^ast.File, rel: string, blocks: ^[dynamic]snap.Block_Range) {
+	for decl in file.decls {
+		vd, ok := decl.derived.(^ast.Value_Decl)
+		if !ok || len(vd.values) == 0 || len(vd.names) == 0 do continue
+		id, iok := vd.names[0].derived.(^ast.Ident)
+		if !iok do continue
+		owner := strings.concatenate({file.pkg_name, "::", id.name}, context.temp_allocator)
+		#partial switch v in vd.values[0].derived {
+		case ^ast.Struct_Type:
+			append(blocks, snap.Block_Range{kind = .Type_Decl, file = rel, first = i32(vd.pos.line), last = i32(vd.end.line), owner = owner})
+		case ^ast.Proc_Lit:
+			body, bok := v.body.derived.(^ast.Block_Stmt)
+			if !bok do continue
+			for stmt in body.stmts {
+				append(blocks, snap.Block_Range{kind = .Statement, file = rel, first = i32(stmt.pos.line), last = i32(stmt.end.line), owner = owner})
+			}
+		}
+	}
+}
+
+// Parses one file. Results go to `implied` / `opt_outs` / `blocks` with
+// strings in the temp allocator; analyze_source copies them out.
+parse_source_file :: proc(rel, src: string, implied: ^[dynamic]Implied_Check, opt_outs: ^[dynamic]snap.Opt_Out, blocks: ^[dynamic]snap.Block_Range = nil) -> bool {
 	context.allocator = context.temp_allocator
 	file := ast.File{src = src, fullpath = rel}
 	p := parser.default_parser()
@@ -121,6 +145,7 @@ parse_source_file :: proc(rel, src: string, implied: ^[dynamic]Implied_Check, op
 	st.proc_names = make(map[^ast.Proc_Lit]string)
 	v := ast.Visitor{visit = visit, data = &st}
 	for decl in file.decls do ast.walk(&v, decl)
+	if blocks != nil do collect_blocks(&file, rel, blocks)
 	return true
 }
 
@@ -128,12 +153,19 @@ parse_source_file :: proc(rel, src: string, implied: ^[dynamic]Implied_Check, op
 analyze_source :: proc(sources: map[string][]string, allocator := context.allocator) -> Ast_Result {
 	implied := make([dynamic]Implied_Check, context.temp_allocator)
 	opt_outs := make([dynamic]snap.Opt_Out, context.temp_allocator)
+	blocks := make([dynamic]snap.Block_Range, context.temp_allocator)
 	for rel, lines in sources {
-		parse_source_file(rel, strings.join(lines, "\n", context.temp_allocator), &implied, &opt_outs)
+		parse_source_file(rel, strings.join(lines, "\n", context.temp_allocator), &implied, &opt_outs, &blocks)
 	}
 	res := Ast_Result{
 		implied  = make([]Implied_Check, len(implied), allocator),
 		opt_outs = make([]snap.Opt_Out, len(opt_outs), allocator),
+		blocks   = make([]snap.Block_Range, len(blocks), allocator),
+	}
+	for b, i in blocks {
+		res.blocks[i] = b
+		res.blocks[i].file = strings.clone(b.file, allocator)
+		res.blocks[i].owner = strings.clone(b.owner, allocator)
 	}
 	for c, i in implied {
 		res.implied[i] = c

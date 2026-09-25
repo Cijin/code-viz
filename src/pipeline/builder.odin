@@ -175,6 +175,7 @@ run_analyzers :: proc(p: ^Pipeline, s: ^Owned_Snapshot) {
 	append(&checks, ..analyze.removed_checks(ast.implied, checks[:], emitted))
 	s.checks = checks[:]
 	s.opt_outs = ast.opt_outs
+	s.blocks = ast.blocks
 }
 
 // Package names declared by the project's files (`package X`).

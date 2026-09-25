@@ -13,6 +13,7 @@ Delta :: struct {
 	procs:    []Proc_Delta, // changed first
 	inline:   []Inline_Change,
 	safety:   Safety_Delta,
+	blocks:   Blocks,
 }
 
 clone_layout :: proc(t: Type_Layout, allocator := context.allocator) -> Type_Layout {
@@ -67,6 +68,7 @@ diff :: proc(prev, curr: ^Snapshot, allocator := context.allocator) -> Delta {
 	d.procs = diff_procs(prev, curr, allocator)
 	d.inline = diff_inlining(prev, curr, allocator)
 	d.safety = diff_safety(prev, curr, allocator)
+	d.blocks = build_blocks(prev, curr, &d, allocator)
 	return d
 }
 

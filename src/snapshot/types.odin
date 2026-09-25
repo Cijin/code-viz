@@ -91,6 +91,20 @@ Scenario_Result :: struct {
 	sanitizer_ok:  Maybe(bool), // nil while running
 }
 
+// SPEC §7.4: a block is one statement of a procedure body, or one type
+// declaration (multi-line).
+Block_Kind :: enum u8 {
+	Statement,
+	Type_Decl,
+}
+
+Block_Range :: struct {
+	kind:        Block_Kind,
+	file:        string,
+	first, last: i32,
+	owner:       string, // package-qualified proc (statements) or type name
+}
+
 Snapshot :: struct {
 	id:       Build_Id,
 	time:     i64,
@@ -101,4 +115,5 @@ Snapshot :: struct {
 	scenario: Maybe(Scenario_Result),
 	source:   map[string][]string, // file -> lines, for the line mapping (§7.1)
 	vet:      []Vet_Finding,       // T1; filled after the green event
+	blocks:   []Block_Range,
 }

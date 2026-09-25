@@ -238,7 +238,7 @@ draw_exec_legend :: proc(win: ^Win, y: f32, hits: ^[dynamic]Hit) {
 	fill_rrect(b, 6, hovered ? BG_RAISED : BG_LANE)
 	stroke_rrect(b, 6, 1, LINE_STRONG)
 	draw_text(.Mono_Regular, 12, label, b.x + 16, cy, TEXT_2)
-	append(hits, Hit{b, .Toggle_Asm})
+	append(hits, Hit{rect = b, action = .Toggle_Asm})
 }
 
 draw_execution_lens :: proc(win: ^Win, d: ^snap.Delta, hits: ^[dynamic]Hit) {

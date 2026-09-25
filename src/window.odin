@@ -25,6 +25,7 @@ Win :: struct {
 	kind:    Win_Kind,
 	view:     Lens_View, // lens windows only
 	show_asm: bool,      // Execution lens: instruction text instead of glyphs
+	pinned:   int,       // Blocks: row pinned by a click; -1 = the largest change
 	id:      sdl.WindowID,
 	w, h:    f32,
 	mouse_x: f32,

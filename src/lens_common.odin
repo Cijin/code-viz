@@ -46,7 +46,7 @@ draw_lens_top :: proc(win: ^Win, from, to: u32, tool: string) -> f32 {
 			fill_rrect(r, 6, BG_LANE)
 		}
 		draw_text(.Sans_Medium, 15, tab.label, r.x + 14, cy, on || hovered ? TEXT : TEXT_2)
-		append(&win.hits, Hit{r, tab.action})
+		append(&win.hits, Hit{rect = r, action = tab.action})
 		x += r.w + 4
 	}
 
