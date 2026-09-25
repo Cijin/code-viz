@@ -22,11 +22,12 @@ This is a desktop app, written in Odin with SDL3. It shows how each successful b
 
 ## Commands
 
-Fill these in during M0:
-
 - Build: `odin build src -out:build/substrate -debug`
 - Run: `./build/substrate <project_dir>`
+- Screenshot (one frame, then exit): `./build/substrate --screenshot out.bmp <project_dir>`
 - Test: `odin test tests`
+- LLVM tools on this Mac are keg-only: `/opt/homebrew/opt/llvm/bin` (not on `PATH`).
+- The analysis build is `-o:minimal -debug -build-mode:test` (see `docs/VERIFIED.md`).
 
 ## External tools
 
