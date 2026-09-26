@@ -2,6 +2,7 @@ package tests
 
 import "core:fmt"
 import "core:os"
+import "core:slice"
 import "core:strings"
 import "core:testing"
 import "core:time"
@@ -86,8 +87,9 @@ expected_cache_lines_test :: proc(t: ^testing.T) {
 	p208 := snap.placement(208, context.temp_allocator)
 	testing.expect_value(t, p208.lines, 26)
 	testing.expect_value(t, len(p208.spanning), 0)
-	p72 := snap.placement(72, context.temp_allocator) // needs 2 lines; e.g. [504, 576) touches 3
-	testing.expect(t, len(p72.spanning) > 0)
+	// 100 B needs 2 lines; element 1 at [100, 200) touches lines 1..3.
+	p100 := snap.placement(100, context.temp_allocator)
+	testing.expect(t, slice.contains(p100.spanning, 1))
 
 	b213, l213 := snap.array_totals(16)
 	b214, l214 := snap.array_totals(24)
