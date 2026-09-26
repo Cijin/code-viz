@@ -62,8 +62,7 @@ draw_spill_box :: proc(old, new: int, right, cy: f32) -> f32 {
 @(private = "file")
 draw_cells :: proc(glyphs: []snap.Glyph_Item, texts: []string, show_asm: bool, x, cy, w: f32) {
 	if show_asm {
-		line := strings.join(texts, "; ", context.temp_allocator)
-		draw_text(.Mono_Regular, 11, fit_text(.Mono_Regular, 11, line, w), x, cy, TEXT_2)
+		draw_asm(glyphs, texts, x, cy, w)
 		return
 	}
 	cx := x
@@ -74,6 +73,53 @@ draw_cells :: proc(glyphs: []snap.Glyph_Item, texts: []string, show_asm: bool, x
 			return
 		}
 		cx += draw_glyph(g, cx, cy, .Lens) + 5
+	}
+}
+
+// Instruction text for display: a space instead of the tab (the font has
+// no glyph for it), and no absolute address where a <symbol> names the
+// target, since addresses move on every relink.
+@(private = "file")
+asm_display :: proc(text: string) -> string {
+	s, _ := strings.replace_all(text, "\t", " ", context.temp_allocator)
+	if lt := strings.index(s, " <"); lt >= 0 {
+		start := strings.last_index(s[:lt], "0x")
+		if start >= 0 && !strings.contains(s[start:lt], " ") {
+			s = strings.concatenate({s[:start], s[lt + 1:]}, context.temp_allocator)
+		}
+	}
+	s, _ = strings.replace_all(s, "<_", "<", context.temp_allocator)
+	return s
+}
+
+// One line of instructions, each coloured by its diff mark: new = cost,
+// removed (old side) = gain, changed = bright, same = dim.
+@(private = "file")
+draw_asm :: proc(glyphs: []snap.Glyph_Item, texts: []string, x, cy, w: f32) {
+	sep := "; "
+	sw, _ := text_size(.Mono_Regular, 11, sep)
+	cx := x
+	for text, i in texts {
+		mark := i < len(glyphs) ? glyphs[i].mark : snap.Mark.Plain
+		col := TEXT_3
+		switch mark {
+		case .New:     col = COST
+		case .Gain:    col = GAIN
+		case .Changed: col = TEXT
+		case .Plain:
+		}
+		t := asm_display(text)
+		tw, _ := text_size(.Mono_Regular, 11, t)
+		more := fmt.tprintf("+%d", len(texts) - i)
+		mw, _ := text_size(.Mono_Regular, 11, more)
+		if cx + tw > x + w - (i < len(texts) - 1 ? mw + sw : 0) {
+			fit := fit_text(.Mono_Regular, 11, t, x + w - cx - mw - sw)
+			if fit != "" do cx += draw_text(.Mono_Regular, 11, fit, cx, cy, col) + sw
+			draw_text(.Mono_Regular, 11, more, cx, cy, TEXT_4)
+			return
+		}
+		cx += draw_text(.Mono_Regular, 11, t, cx, cy, col)
+		if i < len(texts) - 1 do cx += draw_text(.Mono_Regular, 11, sep, cx, cy, TEXT_4)
 	}
 }
 

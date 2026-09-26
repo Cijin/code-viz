@@ -154,6 +154,8 @@ diff_line :: proc(old, now: []Insn, allocator := context.allocator) -> (old_g, n
 			i += 1
 			j += 1
 		} else if i < len(old) && lcs[(i + 1) * w + j] >= lcs[i * w + j + 1] {
+			// Gone from the new build: marked as a gain on the old side.
+			old_g[i].mark = .Gain
 			removed += 1
 			i += 1
 		} else {
@@ -162,6 +164,7 @@ diff_line :: proc(old, now: []Insn, allocator := context.allocator) -> (old_g, n
 			j += 1
 		}
 	}
+	for k in i ..< len(old) do old_g[k].mark = .Gain
 	removed += len(old) - i
 	if removed > 0 do changed = true
 	return

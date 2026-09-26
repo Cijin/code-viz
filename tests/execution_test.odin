@@ -95,6 +95,15 @@ new_insns_on_flags_and_return_test :: proc(t: ^testing.T) {
 		if n > 0 do append(&counts, Line_New{r.line, n})
 		fmt.printf("  line %d (was %d) %d -> %d  %s\n", r.line, r.old_line, len(r.old), len(r.now), strings.trim_space(r.code))
 	}
+	// Old-side marks: every instruction the new build no longer has is a
+	// gain, so removed = old - matched and matched = new - new marks.
+	for r in ph.rows {
+		gains, news := 0, 0
+		for gl in r.old do if gl.mark == .Gain do gains += 1
+		for gl in r.now do if gl.mark == .New do news += 1
+		testing.expect_value(t, gains, len(r.old) - (len(r.now) - news))
+	}
+
 	slice.sort_by(counts[:], proc(a, b: Line_New) -> bool {return a.new > b.new})
 	testing.expect(t, len(counts) >= 2)
 	if len(counts) >= 2 {
