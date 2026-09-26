@@ -157,15 +157,6 @@ draw_byte_cell :: proc(cell: snap.Byte_Cell, r: Rect, radius: f32) {
 	}
 }
 
-draw_dot :: proc(d: snap.Dot, cx, cy, diameter: f32) {
-	c := NEUTRAL_DOT
-	switch d {
-	case .Cost:    c = COST
-	case .Gain:    c = GAIN
-	case .Neutral:
-	}
-	fill_circle(cx, cy, diameter, c)
-}
 
 // SPEC §3.2 byte bars (9×18): read = hollow, written = filled; `new` uses
 // cost. Returns the width.

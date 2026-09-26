@@ -33,16 +33,4 @@ with_alpha :: proc(c: Color, a: f32) -> Color {
 // SPEC §3.3 type scale (CSS px at scale 1).
 CAPS_SIZE     :: f32(12)
 CAPS_TRACKING :: f32(0.12) // em
-LANE_DELTA    :: f32(34)
 LENS_TITLE    :: f32(30)
-
-// SPEC §8.2 / Main.dc.html layout values.
-GLANCE_W        :: f32(468)
-GLANCE_H        :: f32(860)
-LANE_PAD_Y      :: f32(16)
-LANE_PAD_X      :: f32(18)
-LANE_RADIUS     :: f32(8)
-LANE_GAP        :: f32(10)
-LANE_ROW_GAP    :: f32(12)
-LANE_DELTA_COL  :: f32(80)
-LANE_DELTA_GAP  :: f32(16)

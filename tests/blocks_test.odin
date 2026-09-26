@@ -148,7 +148,4 @@ first_build_has_current_state_test :: proc(t: ^testing.T) {
 	testing.expect(t, has_fix)
 	testing.expect_value(t, len(d.blocks.rows), 0)
 
-	history := make([dynamic]snap.Build_Dots, context.temp_allocator)
-	m := snap.build_glance(&d, history[:], context.temp_allocator)
-	testing.expect(t, !m.exec.changed && !m.memory.changed && !m.safety.changed)
 }

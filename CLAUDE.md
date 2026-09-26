@@ -15,7 +15,8 @@ This is a desktop app, written in Odin with SDL3. It shows how each successful b
 - The UI thread never blocks. Workers talk to the UI through channels plus `SDL_PushEvent`.
 - The UI draws only on events. Idle CPU use must be close to 0%.
 - Use only the glyphs and colors in SPEC §3. Do not add new ones.
-- No sentences in the Glance and Blocks views. Explanations go in tooltips only.
+- No sentences in the Blocks view. Explanations go in tooltips only.
+- The Glance view was removed at the user's request: one window with the Blocks, Execution, Memory and Safety tabs, opening on Blocks.
 - No wall-clock timing in the UI. Show bytes, instruction counts and check sites only.
 - Parse external tool output in small, separate procedures, each with a test on captured sample output.
 - If a fact in SPEC §11 is not confirmed yet, confirm it before code depends on it. Record the result in `docs/VERIFIED.md`.

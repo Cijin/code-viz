@@ -1,7 +1,6 @@
 package snapshot
 
-// View models: what the UI draws, independent of SDL. The glance view,
-// Blocks and the lenses all speak this vocabulary (SPEC §2, §3.2).
+// The visual vocabulary the views share (SPEC §3.2), independent of SDL.
 
 Glyph :: enum u8 {
 	Op,
@@ -31,16 +30,7 @@ Byte_Cell :: enum u8 {
 	New_Data, // a field byte added by this build
 }
 
-Dot :: enum u8 {
-	Neutral,
-	Cost,
-	Gain,
-}
 
-Build_Dots :: struct {
-	e, m, s: Dot,
-	current: bool,
-}
 
 Build_Status :: enum u8 {
 	Ok,       // last build was green
@@ -55,47 +45,7 @@ Inline_Change :: struct {
 	was_inlined, now_inlined: bool,
 }
 
-Exec_Lane :: struct {
-	changed: bool,
-	symbol:  string,
-	delta:   int, // instruction count
-	glyphs:  []Glyph_Item,
-	inline:  Maybe(Inline_Change),
-}
 
-Memory_Lane :: struct {
-	changed:    bool,
-	symbol:     string,
-	delta:      int, // bytes
-	old_build:  Build_Id,
-	new_build:  Build_Id,
-	old_cells:  []Byte_Cell,
-	new_cells:  []Byte_Cell,
-}
 
-Safety_Lane :: struct {
-	changed:     bool,
-	symbol:      string,
-	delta:       int, // check sites
-	now:         []Glyph_Item,
-	after_fix:   []Glyph_Item,
-	asan_done:   int,
-	asan_total:  int, // 0 when no sanitizer run
-}
 
-// A signal that changed (e.g. "+48 B stack"), shown beside the quiet chips.
-Signal_Chip :: struct {
-	delta: int,
-	label: string,
-}
 
-Glance :: struct {
-	status:    Build_Status,
-	from, to:  Build_Id,
-	exec:      Exec_Lane,
-	memory:    Memory_Lane,
-	safety:    Safety_Lane,
-	quiet:     []string, // signals with no change: stack, heap, opt-out, vet
-	loud:      []Signal_Chip,
-	builds:    []Build_Dots, // last 16 green builds, oldest first
-}

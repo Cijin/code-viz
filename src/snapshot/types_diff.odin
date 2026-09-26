@@ -174,7 +174,8 @@ diff_types :: proc(prev, curr: map[string]Type_Layout, allocator := context.allo
 	return out[:]
 }
 
-// Byte cells for the glance strip: data, padding, or data of a new field.
+// Byte cells for a type's layout strip (Blocks): data, padding, or data of
+// a new field.
 byte_cells :: proc(t: Type_Layout, new_fields: []string, allocator := context.allocator) -> []Byte_Cell {
 	cells := make([]Byte_Cell, t.size, allocator)
 	for &c in cells do c = .Padding

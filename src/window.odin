@@ -5,11 +5,10 @@ import "core:strings"
 import sdl "vendor:sdl3"
 import ttf "vendor:sdl3/ttf"
 
-// The app window with its renderer, text engine and caches. Glance, Blocks
-// and the lenses are tabs in this one window.
+// The app window with its renderer, text engine and caches. Blocks and the
+// lenses are tabs in this one window; Blocks is the default.
 
 View :: enum u8 {
-	Glance,
 	Blocks,
 	Execution,
 	Memory,

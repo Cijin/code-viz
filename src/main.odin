@@ -1,7 +1,6 @@
 package main
 
 import "core:fmt"
-import "core:mem/virtual"
 import "core:os"
 import "core:strings"
 import sdl "vendor:sdl3"
@@ -19,9 +18,6 @@ App :: struct {
 	// The newest delta; a failed build never replaces it.
 	delta:           ^pipeline.Owned_Delta,
 	vet:             ^pipeline.Owned_Vet, // T1 result merged into `delta`
-	history:         [dynamic]snap.Build_Dots,
-	glance:          snap.Glance,
-	glance_arena:    virtual.Arena,
 }
 
 app: App
@@ -36,19 +32,8 @@ notify_ui :: proc() {
 	_ = sdl.PushEvent(&ev)
 }
 
-rebuild_glance :: proc() {
-	if app.delta == nil {
-		app.glance.status = app.status
-		return
-	}
-	virtual.arena_free_all(&app.glance_arena)
-	app.glance = snap.build_glance(&app.delta.delta, app.history[:], virtual.arena_allocator(&app.glance_arena))
-	app.glance.status = app.status
-}
-
 // Applies pipeline events. Returns true when a view should redraw.
 drain_pipeline :: proc() -> (redraw: bool) {
-	green := false
 	for {
 		ev, ok := pipeline.poll(&app.pipe)
 		if !ok do break
@@ -66,14 +51,8 @@ drain_pipeline :: proc() -> (redraw: bool) {
 			app.delta = ev.delta
 			ev.delta = nil
 			app.status = .Ok
-			green = true
 			// A new build re-pins the largest change.
 			if app.win != nil do app.win.pinned = -1
-			// One set of history dots per green build (not per redraw).
-			if app.delta.from != app.delta.to {
-				rebuild_glance()
-				snap.record_build(&app.history, app.glance)
-			}
 		case .Vet_Ready:
 			if app.delta != nil && app.delta.to == ev.id {
 				pipeline.vet_free(app.vet)
@@ -82,15 +61,10 @@ drain_pipeline :: proc() -> (redraw: bool) {
 				app.delta.safety.vet_total = app.vet.total
 				app.delta.safety.vet_new = app.vet.new
 				app.delta.safety.vet_ready = true
-				green = true
-			}
+				}
 		}
 		pipeline.event_free(&ev)
 	}
-	// Only a new delta rebuilds the lanes (and adds a build to the history);
-	// other events just update the status dot.
-	if green do rebuild_glance()
-	else do app.glance.status = app.status
 	return
 }
 
@@ -109,11 +83,6 @@ render_win :: proc(win: ^Win) {
 	sdl.RenderClear(g.renderer)
 	d := app.delta != nil ? &app.delta.delta : &EMPTY_DELTA
 	switch win.view {
-	case .Glance:
-		// Without a project (M0 sample) the ids come from the glance model.
-		from, to := u32(app.glance.from), u32(app.glance.to)
-		top := draw_tabs(win, from, to, "", status_color(app.glance.status))
-		draw_glance(&app.glance, top, win.w, win.h, win.mouse_x, win.mouse_y, &win.hits)
 	case .Memory:
 		draw_memory_lens(win, d)
 	case .Execution:
@@ -139,7 +108,6 @@ show_view :: proc(view: View) {
 handle_action :: proc(a: Action, index := 0) {
 	switch a {
 	case .None:
-	case .Open_Glance:    show_view(.Glance)
 	case .Open_Blocks:    show_view(.Blocks)
 	case .Open_Execution: show_view(.Execution)
 	case .Open_Memory:    show_view(.Memory)
@@ -201,7 +169,6 @@ main :: proc() {
 	}
 	defer ttf.Quit()
 	font_dir = find_font_dir()
-	_ = virtual.arena_init_growing(&app.glance_arena)
 
 	// One window; the lenses need the room of the mockups' 1440×960 frame,
 	// clamped to the display.
@@ -211,18 +178,11 @@ main :: proc() {
 		w = min(w, f32(bounds.w) - 40)
 		h = min(h, f32(bounds.h) - 40)
 	}
-	if app.screenshot_path != "" do w, h = GLANCE_W, GLANCE_H
 	app.win = win_create("Substrate", w, h)
 	if app.win == nil do os.exit(1)
 	defer win_destroy(app.win)
 
-	// Without a project, show the M0 sample so the glance matches the mockup.
-	if app.project_dir == "" {
-		app.glance = snap.sample_glance(virtual.arena_allocator(&app.glance_arena))
-	} else {
-		app.status = .Building
-		rebuild_glance()
-	}
+	if app.project_dir != "" do app.status = .Building
 
 	wake_event = sdl.RegisterEvents(1)
 	if app.project_dir != "" && app.screenshot_path == "" {

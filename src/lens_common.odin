@@ -19,8 +19,7 @@ Tab :: struct {
 	view:   View,
 }
 
-TABS := [5]Tab{
-	{"Glance", .Open_Glance, .Glance},
+TABS := [4]Tab{
 	{"Blocks", .Open_Blocks, .Blocks},
 	{"Execution", .Open_Execution, .Execution},
 	{"Memory", .Open_Memory, .Memory},
@@ -28,7 +27,7 @@ TABS := [5]Tab{
 }
 
 // Tab metrics: the lens mockups' size, or a compact row when the window is
-// too narrow for it (e.g. the glance panel beside an editor).
+// too narrow for it (e.g. a narrow window beside an editor).
 @(private = "file")
 Tab_Style :: struct {
 	font, pad_x, h, gap, pad_side: f32,
@@ -53,7 +52,7 @@ tab_row_width :: proc(st: Tab_Style) -> f32 {
 // starts. The right label shows the builds compared, the build status dot
 // and, in lenses, the tool that measured the data.
 draw_tabs :: proc(win: ^Win, from, to: u32, tool: string, status: Maybe(Color) = nil) -> f32 {
-	fill_rect({0, 0, win.w, win.h}, win.view == .Glance ? BG_WINDOW : BG_LENS)
+	fill_rect({0, 0, win.w, win.h}, BG_LENS)
 	label := to == 0 ? "" : fmt.tprintf("%d → %d", from, to)
 	if tool != "" do label = label == "" ? tool : fmt.tprintf("%s · %s", label, tool)
 	lw, _ := text_size(.Mono_Regular, 13, label)
@@ -97,9 +96,9 @@ draw_tabs :: proc(win: ^Win, from, to: u32, tool: string, status: Maybe(Color) =
 	return top + LENS_TOP_H + (st.wordmark ? LENS_GAP : 8)
 }
 
-// Lenses keep their mockup name for the shared row.
+// Every view's top row, with the build status dot.
 draw_lens_top :: proc(win: ^Win, from, to: u32, tool: string) -> f32 {
-	return draw_tabs(win, from, to, tool)
+	return draw_tabs(win, from, to, tool, status_color(app.status))
 }
 
 // `.lay` card: padding 16, radius 8, panel fill and a 1 px line.

@@ -117,7 +117,7 @@ run_build :: proc(p: ^Pipeline) {
 	sync.atomic_store(&p.last_green, id)
 	emit(p, Event{kind = .Build_Green, id = id, delta = d})
 
-	// T1: vet runs after the glance data is out (SPEC §6.7). New findings
+	// T1: vet runs after the delta is out (SPEC §6.7). New findings
 	// are those the previous build did not report.
 	vet := new(Owned_Vet, shared_allocator())
 	if virtual.arena_init_growing(&vet.arena) == nil {

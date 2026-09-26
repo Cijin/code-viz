@@ -146,21 +146,3 @@ real_build_memory_test :: proc(t: ^testing.T) {
 	testing.expect_value(t, sizes[1], 24)
 }
 
-@(test)
-glance_memory_lane_test :: proc(t: ^testing.T) {
-	prev := snap.Snapshot{id = 213, types = parse_sample(SAMPLE_DWARF_V213)}
-	curr := snap.Snapshot{id = 214, types = parse_sample(SAMPLE_DWARF_V214)}
-	d := snap.diff(&prev, &curr, context.temp_allocator)
-	history := make([dynamic]snap.Build_Dots, context.temp_allocator)
-	m := snap.build_glance(&d, history[:], context.temp_allocator)
-	snap.record_build(&history, m)
-	m.builds = history[:]
-	testing.expect(t, m.memory.changed)
-	testing.expect_value(t, m.memory.symbol, "Frame_Header")
-	testing.expect_value(t, m.memory.delta, 8)
-	testing.expect_value(t, len(m.memory.old_cells), 16)
-	testing.expect_value(t, len(m.memory.new_cells), 24)
-	testing.expect_value(t, m.memory.new_cells[8], snap.Byte_Cell.New_Data)
-	testing.expect_value(t, len(m.builds), 1)
-	testing.expect_value(t, m.builds[0].m, snap.Dot.Cost)
-}
