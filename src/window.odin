@@ -18,7 +18,6 @@ View :: enum u8 {
 Win :: struct {
 	gfx:     Gfx,
 	view:     View,
-	show_asm: bool,      // Execution lens: instruction text instead of glyphs
 	pinned:   int,       // Blocks: row pinned by a click; -1 = the largest change
 	id:      sdl.WindowID,
 	w, h:    f32,

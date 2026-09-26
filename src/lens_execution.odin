@@ -17,63 +17,26 @@ arch_label :: proc() -> string {
 	return ODIN_ARCH == .arm64 ? "arm64" : "x86-64"
 }
 
-// SPEC §3.3 lens stat box: glyph, big delta, old→new.
+// A lens stat box: label, delta, old→new.
 @(private = "file")
-draw_stat_box :: proc(glyph: snap.Glyph, old, new: int, right, cy: f32) -> f32 {
-	d := new - old
-	delta := format_delta(d)
-	sub := fmt.tprintf("%d→%d", old, new)
-	dw, _ := text_size(.Mono_SemiBold, 22, delta)
-	sw, _ := text_size(.Mono_Regular, 13, sub)
-	gw := glyph_width(glyph, .Lens)
-	w := 14 + gw + 10 + dw + 10 + sw + 14
-	r := Rect{right - w, cy - 20, w, 40}
-	fill_rrect(r, 6, BG_PANEL)
-	stroke_rrect(r, 6, 1, LINE)
-	x := r.x + 14
-	x += draw_glyph({glyph, d != 0 ? .New : .Plain}, x, cy, .Lens) + 10
-	x += draw_text(.Mono_SemiBold, 22, delta, x, cy, delta_color(d)) + 10
-	draw_text(.Mono_Regular, 13, sub, x, cy, TEXT_3)
-	return w
-}
-
-// Stack spills, counted apart from the rows (see snapshot.is_spill).
-@(private = "file")
-draw_spill_box :: proc(old, new: int, right, cy: f32) -> f32 {
+draw_count_box :: proc(label: string, old, new: int, right, cy: f32, big := false) -> f32 {
 	d := new - old
 	delta := format_delta(d)
 	sub := fmt.tprintf("%d\u2192%d", old, new)
-	lw, _ := text_size(.Mono_Regular, 13, "spills")
-	dw, _ := text_size(.Mono_Regular, 16, delta)
+	dsize := big ? f32(22) : f32(16)
+	dface := big ? Face.Mono_SemiBold : Face.Mono_Regular
+	lw, _ := text_size(.Mono_Regular, 13, label)
+	dw, _ := text_size(dface, dsize, delta)
 	sw, _ := text_size(.Mono_Regular, 13, sub)
 	w := 14 + lw + 10 + dw + 10 + sw + 14
 	r := Rect{right - w, cy - 20, w, 40}
 	fill_rrect(r, 6, BG_PANEL)
 	stroke_rrect(r, 6, 1, LINE)
 	x := r.x + 14
-	x += draw_text(.Mono_Regular, 13, "spills", x, cy, TEXT_3) + 10
-	x += draw_text(.Mono_Regular, 16, delta, x, cy, delta_color(d)) + 10
+	x += draw_text(.Mono_Regular, 13, label, x, cy, TEXT_3) + 10
+	x += draw_text(dface, dsize, delta, x, cy, delta_color(d)) + 10
 	draw_text(.Mono_Regular, 13, sub, x, cy, TEXT_3)
 	return w
-}
-
-// Glyph cells, or the instruction text when "show asm" is on. Clips to `w`
-// and says how many were left out.
-@(private = "file")
-draw_cells :: proc(glyphs: []snap.Glyph_Item, texts: []string, show_asm: bool, x, cy, w: f32) {
-	if show_asm {
-		draw_asm(glyphs, texts, x, cy, w)
-		return
-	}
-	cx := x
-	for g, i in glyphs {
-		gw := glyph_width(g.glyph, .Lens)
-		if cx + gw > x + w - 28 && i < len(glyphs) - 1 {
-			draw_text(.Mono_Regular, 11, fmt.tprintf("+%d", len(glyphs) - i), cx, cy, TEXT_3)
-			return
-		}
-		cx += draw_glyph(g, cx, cy, .Lens) + 5
-	}
 }
 
 // Instruction text for display: a space instead of the tab (the font has
@@ -92,42 +55,98 @@ asm_display :: proc(text: string) -> string {
 	return s
 }
 
-// One line of instructions, each coloured by its diff mark: new = cost,
-// removed (old side) = gain, changed = bright, same = dim.
+// Diff colour: new = cost, removed (old side) = gain, changed = bright,
+// same = dim.
 @(private = "file")
-draw_asm :: proc(glyphs: []snap.Glyph_Item, texts: []string, x, cy, w: f32) {
-	sep := "; "
-	sw, _ := text_size(.Mono_Regular, 11, sep)
-	cx := x
+mark_color :: proc(m: snap.Mark) -> Color {
+	switch m {
+	case .New:     return COST
+	case .Gain:    return GAIN
+	case .Changed: return TEXT
+	case .Plain:
+	}
+	return TEXT_3
+}
+
+ASM_SIZE :: f32(11.5)
+ASM_LINE_H :: f32(17)
+ASM_MAX_LINES :: 8
+ASM_GAP :: f32(14) // between instructions on a line
+
+Asm_Seg :: struct {
+	text: string,
+	col:  Color,
+	x:    f32, // offset within the cell
+	line: int,
+}
+
+// Lays a line's instructions out in rows of the cell width, breaking between
+// instructions. Past ASM_MAX_LINES the rest is counted as "+N".
+@(private = "file")
+layout_asm :: proc(marks: []snap.Glyph_Item, texts: []string, w: f32) -> (segs: [dynamic]Asm_Seg, lines: int) {
+	segs = make([dynamic]Asm_Seg, context.temp_allocator)
+	if len(texts) == 0 do return
+	x := f32(0)
+	line := 0
 	for text, i in texts {
-		mark := i < len(glyphs) ? glyphs[i].mark : snap.Mark.Plain
-		col := TEXT_3
-		switch mark {
-		case .New:     col = COST
-		case .Gain:    col = GAIN
-		case .Changed: col = TEXT
-		case .Plain:
-		}
 		t := asm_display(text)
-		tw, _ := text_size(.Mono_Regular, 11, t)
-		more := fmt.tprintf("+%d", len(texts) - i)
-		mw, _ := text_size(.Mono_Regular, 11, more)
-		if cx + tw > x + w - (i < len(texts) - 1 ? mw + sw : 0) {
-			fit := fit_text(.Mono_Regular, 11, t, x + w - cx - mw - sw)
-			if fit != "" do cx += draw_text(.Mono_Regular, 11, fit, cx, cy, col) + sw
-			draw_text(.Mono_Regular, 11, more, cx, cy, TEXT_4)
-			return
+		tw, _ := text_size(.Mono_Regular, ASM_SIZE, t)
+		if x > 0 && x + tw > w {
+			line += 1
+			x = 0
 		}
-		cx += draw_text(.Mono_Regular, 11, t, cx, cy, col)
-		if i < len(texts) - 1 do cx += draw_text(.Mono_Regular, 11, sep, cx, cy, TEXT_4)
+		if line == ASM_MAX_LINES - 1 && i < len(texts) - 1 {
+			// Last visible line: keep room for the "+N" count.
+			more := fmt.tprintf("+%d", len(texts) - i)
+			mw, _ := text_size(.Mono_Regular, ASM_SIZE, more)
+			if x + tw + ASM_GAP + mw > w {
+				append(&segs, Asm_Seg{more, TEXT_4, x, line})
+				return segs, line + 1
+			}
+		}
+		if tw > w do t = fit_text(.Mono_Regular, ASM_SIZE, t, w)
+		mark := i < len(marks) ? marks[i].mark : snap.Mark.Plain
+		append(&segs, Asm_Seg{t, mark_color(mark), x, line})
+		x += tw + ASM_GAP
+	}
+	return segs, line + 1
+}
+
+@(private = "file")
+draw_asm :: proc(segs: []Asm_Seg, x, top: f32) {
+	for s in segs {
+		draw_text(.Mono_Regular, ASM_SIZE, s.text, x + s.x, top + f32(s.line) * ASM_LINE_H + ASM_LINE_H / 2, s.col)
 	}
 }
 
 @(private = "file")
-draw_exec_rows :: proc(win: ^Win, pd: ^snap.Proc_Delta, from, to: snap.Build_Id, r: Rect) {
+exec_row_height :: proc(old_lines, new_lines: int) -> f32 {
+	return max(EXEC_ROW_H, 11 + f32(max(old_lines, new_lines, 1)) * ASM_LINE_H + 11)
+}
+
+@(private = "file")
+exec_cell_width :: proc(w: f32) -> f32 {
+	return (w - 32 - EXEC_COL_N - EXEC_COL_CODE - EXEC_COL_D) / 2
+}
+
+// Height the rows need at this width.
+@(private = "file")
+exec_rows_height :: proc(pd: ^snap.Proc_Delta, w: f32) -> f32 {
+	cw := exec_cell_width(w) - 16
+	h := 8 + EXEC_HEAD_H + 4
+	for row in pd.rows {
+		_, ol := layout_asm(row.old, row.old_asm, cw)
+		_, nl := layout_asm(row.now, row.now_asm, cw)
+		h += exec_row_height(ol, nl)
+	}
+	return h
+}
+
+@(private = "file")
+draw_exec_rows :: proc(pd: ^snap.Proc_Delta, from, to: snap.Build_Id, r: Rect) {
 	draw_card(r)
 	x := r.x + 16
-	cell_w := (r.w - 32 - EXEC_COL_N - EXEC_COL_CODE - EXEC_COL_D) / 2
+	cell_w := exec_cell_width(r.w)
 	col_old := x + EXEC_COL_N + EXEC_COL_CODE
 	col_new := col_old + cell_w
 	right := r.x + r.w - 16
@@ -135,26 +154,31 @@ draw_exec_rows :: proc(win: ^Win, pd: ^snap.Proc_Delta, from, to: snap.Build_Id,
 	hy := r.y + 8 + EXEC_HEAD_H / 2
 	draw_caps(fmt.tprintf("build %d", from), col_old, hy)
 	draw_caps(fmt.tprintf("build %d", to), col_new, hy, TEXT)
-	draw_text_right(.Sans_SemiBold, CAPS_SIZE, "Δ", right, hy, TEXT_3)
+	draw_text_right(.Sans_SemiBold, CAPS_SIZE, "\u0394", right, hy, TEXT_3)
 
 	y := r.y + 8 + EXEC_HEAD_H
 	for row in pd.rows {
-		if y + EXEC_ROW_H > r.y + r.h - 4 do break
-		rr := Rect{r.x + 1, y, r.w - 2, EXEC_ROW_H}
+		old_segs, ol := layout_asm(row.old, row.old_asm, cell_w - 16)
+		new_segs, nl := layout_asm(row.now, row.now_asm, cell_w - 16)
+		h := exec_row_height(ol, nl)
+		if y + h > r.y + r.h - 4 do break
+		rr := Rect{r.x + 1, y, r.w - 2, h}
 		fill_rect({rr.x + 15, y, rr.w - 30, 1}, LINE)
 		if row.changed do fill_rect(rr, with_alpha(COST, 0.07))
-		cy := y + EXEC_ROW_H / 2
+		// Source and delta align with the first line of instructions.
+		top := y + 11
+		cy := top + ASM_LINE_H / 2
 
-		label := row.cold ? "cold" : (row.line > 0 ? fmt.tprintf("%d", row.line) : fmt.tprintf("−%d", row.old_line))
+		label := row.cold ? "cold" : (row.line > 0 ? fmt.tprintf("%d", row.line) : fmt.tprintf("\u2212%d", row.old_line))
 		draw_text(.Mono_Regular, 12, label, x, cy, row.changed ? COST : TEXT_4)
 		code := row.cold ? "check failure paths" : strings.trim_right_space(row.code)
 		code, _ = strings.replace_all(code, "\t", "    ", context.temp_allocator)
 		draw_text(.Mono_Regular, 12.5, fit_text(.Mono_Regular, 12.5, code, EXEC_COL_CODE - 12), x + EXEC_COL_N, cy, row.changed ? TEXT : TEXT_3)
 
-		draw_cells(row.old, row.old_asm, win.show_asm, col_old, cy, cell_w - 8)
-		draw_cells(row.now, row.now_asm, win.show_asm, col_new, cy, cell_w - 8)
+		draw_asm(old_segs[:], col_old, top)
+		draw_asm(new_segs[:], col_new, top)
 		if row.delta != 0 do draw_text_right(.Mono_Regular, 14, format_delta(row.delta), right, cy, delta_color(row.delta))
-		y += EXEC_ROW_H
+		y += h
 	}
 }
 
@@ -278,37 +302,24 @@ draw_scenario_panel :: proc(r: Rect) {
 	draw_text(.Mono_Regular, 12, ODIN_OS == .Linux ? "—" : "linux only", x, y + 16 + 14 + 8, TEXT_3)
 }
 
+// Colour key for the instruction text.
 @(private = "file")
-draw_exec_legend :: proc(win: ^Win, y: f32, hits: ^[dynamic]Hit) {
+draw_exec_legend :: proc(y: f32) {
 	cy := y + 22
 	x := LENS_PAD_X
-	items := [6]struct {
-		g:     snap.Glyph_Item,
+	items := [4]struct {
+		mark:  snap.Mark,
 		label: string,
-	}{
-		{{.Op, .Plain}, "op"},
-		{{.Mem, .Plain}, "load / store"},
-		{{.Branch, .Plain}, "branch"},
-		{{.Call, .Plain}, "call / ret"},
-		{{.Op, .New}, "new"},
-		{{.Mem, .Changed}, "changed"},
-	}
+	}{{.New, "new"}, {.Gain, "removed"}, {.Changed, "changed opcode"}, {.Plain, "same"}}
 	for it in items {
-		x += draw_glyph(it.g, x, cy, .Lens) + 6
+		fill_rrect({x, cy - 5, 10, 10}, 2, mark_color(it.mark))
+		x += 10 + 6
 		x += draw_text(.Mono_Regular, 12, it.label, x, cy, TEXT_3) + 20
 	}
-	label := win.show_asm ? "show glyphs" : "show asm"
-	lw, _ := text_size(.Mono_Regular, 12, label)
-	b := Rect{win.w - LENS_PAD_X - lw - 32, y, lw + 32, 44}
-	hovered := rect_contains(b, win.mouse_x, win.mouse_y)
-	fill_rrect(b, 6, hovered ? BG_RAISED : BG_LANE)
-	stroke_rrect(b, 6, 1, LINE_STRONG)
-	draw_text(.Mono_Regular, 12, label, b.x + 16, cy, TEXT_2)
-	append(hits, Hit{rect = b, action = .Toggle_Asm})
 }
 
-draw_execution_lens :: proc(win: ^Win, d: ^snap.Delta, hits: ^[dynamic]Hit) {
-	y := draw_lens_top(win, u32(d.from), u32(d.to), fmt.tprintf("-o:minimal · %s", arch_label()))
+draw_execution_lens :: proc(win: ^Win, d: ^snap.Delta) {
+	y := draw_lens_top(win, u32(d.from), u32(d.to), fmt.tprintf("-o:minimal \u00b7 %s", arch_label()))
 	if len(d.procs) == 0 {
 		draw_lens_empty(win, y, "No code")
 		return
@@ -320,18 +331,17 @@ draw_execution_lens :: proc(win: ^Win, d: ^snap.Delta, hits: ^[dynamic]Hit) {
 	cy := y + 20
 	draw_text(.Mono_SemiBold, LENS_TITLE, snap.short_name(pd.symbol), x, cy, TEXT)
 	right := x + w
-	right -= draw_spill_box(pd.old_spills, pd.new_spills, right, cy) + 10
-	right -= draw_stat_box(.Call, pd.old_kinds[.Call], pd.new_kinds[.Call], right, cy) + 10
-	right -= draw_stat_box(.Branch, pd.old_kinds[.Branch], pd.new_kinds[.Branch], right, cy) + 10
-	draw_stat_box(.Op, pd.old_count, pd.new_count, right, cy)
+	right -= draw_count_box("spills", pd.old_spills, pd.new_spills, right, cy) + 10
+	right -= draw_count_box("call", pd.old_kinds[.Call], pd.new_kinds[.Call], right, cy) + 10
+	right -= draw_count_box("branch", pd.old_kinds[.Branch], pd.new_kinds[.Branch], right, cy) + 10
+	draw_count_box("instr", pd.old_count, pd.new_count, right, cy, big = true)
 	y += 40 + LENS_GAP
 
 	legend_h := f32(44)
 	bottom_h := f32(230)
 	rows_h := win.h - LENS_PAD_BOTTOM - legend_h - LENS_GAP - bottom_h - LENS_GAP - y
-	needed := 8 + EXEC_HEAD_H + f32(len(pd.rows)) * EXEC_ROW_H + 4
-	rows_h = min(rows_h, needed)
-	draw_exec_rows(win, pd, d.from, d.to, {x, y, w, rows_h})
+	rows_h = min(rows_h, exec_rows_height(pd, w))
+	draw_exec_rows(pd, d.from, d.to, {x, y, w, rows_h})
 	y += rows_h + LENS_GAP
 
 	bottom_h = win.h - LENS_PAD_BOTTOM - legend_h - LENS_GAP - y
@@ -341,5 +351,5 @@ draw_execution_lens :: proc(win: ^Win, d: ^snap.Delta, hits: ^[dynamic]Hit) {
 	draw_scenario_panel({x + 2 * (pw + 16), y, pw, bottom_h})
 	y += bottom_h + LENS_GAP
 
-	draw_exec_legend(win, y, hits)
+	draw_exec_legend(y)
 }

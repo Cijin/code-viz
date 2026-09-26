@@ -86,7 +86,7 @@ render_win :: proc(win: ^Win) {
 	case .Memory:
 		draw_memory_lens(win, d)
 	case .Execution:
-		draw_execution_lens(win, d, &win.hits)
+		draw_execution_lens(win, d)
 	case .Safety:
 		draw_safety_lens(win, d)
 	case .Blocks:
@@ -112,8 +112,6 @@ handle_action :: proc(a: Action, index := 0) {
 	case .Open_Execution: show_view(.Execution)
 	case .Open_Memory:    show_view(.Memory)
 	case .Open_Safety:    show_view(.Safety)
-	case .Toggle_Asm:
-		if app.win != nil do app.win.show_asm = !app.win.show_asm
 	case .Select_Block:
 		// SPEC §8.6: a click pins the row (until the next build).
 		if app.win != nil do app.win.pinned = index
