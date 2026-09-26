@@ -21,6 +21,7 @@ Gfx :: struct {
 	indices:  [dynamic]i32,
 	path_a:   [dynamic]sdl.FPoint,
 	path_b:   [dynamic]sdl.FPoint,
+	clips:    [dynamic]sdl.Rect, // clip stack (physical pixels)
 }
 
 // The window being drawn; set before each window's frame.
@@ -230,11 +231,10 @@ dashed_rect :: proc(r: Rect, offset, width: f32, c: Color) {
 // SPEC §3.2 padding byte: `cost` hatch at 135° (8×8 tile) plus a 1 px
 // `cost` outline.
 hatch_rect :: proc(r: Rect, radius: f32) {
-	clip := sdl.Rect{i32(px(r.x)), i32(px(r.y)), i32(math.ceil(px(r.w))), i32(math.ceil(px(r.h)))}
-	sdl.SetRenderClipRect(g.renderer, &clip)
+	push_clip(r)
 	dst := sdl.FRect{px(r.x), px(r.y), px(r.w), px(r.h)}
 	sdl.RenderTextureTiled(g.renderer, g.hatch, nil, 1, &dst)
-	sdl.SetRenderClipRect(g.renderer, nil)
+	pop_clip()
 	stroke_rrect(r, radius, 1, with_alpha(COST, 0.55))
 }
 
@@ -256,12 +256,26 @@ make_hatch_texture :: proc() {
 	sdl.SetTextureScaleMode(g.hatch, .NEAREST)
 }
 
-// Restricts drawing to `r` (logical coords) until pop_clip.
+// Restricts drawing to `r` (logical coords), intersected with any clip
+// already pushed, until the matching pop_clip.
 push_clip :: proc(r: Rect) {
-	clip := sdl.Rect{i32(px(r.x)), i32(px(r.y)), i32(math.ceil(px(max(r.w, 0)))), i32(math.ceil(px(max(r.h, 0))))}
+	x0, y0 := i32(px(r.x)), i32(px(r.y))
+	x1, y1 := x0 + i32(math.ceil(px(max(r.w, 0)))), y0 + i32(math.ceil(px(max(r.h, 0))))
+	if n := len(g.clips); n > 0 {
+		top := g.clips[n - 1]
+		x0, y0 = max(x0, top.x), max(y0, top.y)
+		x1, y1 = min(x1, top.x + top.w), min(y1, top.y + top.h)
+	}
+	clip := sdl.Rect{x0, y0, max(x1 - x0, 0), max(y1 - y0, 0)}
+	append(&g.clips, clip)
 	sdl.SetRenderClipRect(g.renderer, &clip)
 }
 
 pop_clip :: proc() {
-	sdl.SetRenderClipRect(g.renderer, nil)
+	if len(g.clips) > 0 do pop(&g.clips)
+	if n := len(g.clips); n > 0 {
+		sdl.SetRenderClipRect(g.renderer, &g.clips[n - 1])
+	} else {
+		sdl.SetRenderClipRect(g.renderer, nil)
+	}
 }

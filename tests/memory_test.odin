@@ -81,6 +81,14 @@ expected_cache_lines_test :: proc(t: ^testing.T) {
 		testing.expect_value(t, p214.spanning[1], 5)
 	}
 
+	// Elements larger than a line always span lines; they only count as
+	// split when they touch more lines than their size needs.
+	p208 := snap.placement(208, context.temp_allocator)
+	testing.expect_value(t, p208.lines, 26)
+	testing.expect_value(t, len(p208.spanning), 0)
+	p72 := snap.placement(72, context.temp_allocator) // needs 2 lines; e.g. [504, 576) touches 3
+	testing.expect(t, len(p72.spanning) > 0)
+
 	b213, l213 := snap.array_totals(16)
 	b214, l214 := snap.array_totals(24)
 	testing.expect_value(t, b213, 160_000)

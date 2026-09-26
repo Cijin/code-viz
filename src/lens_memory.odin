@@ -154,13 +154,15 @@ element_words :: proc(name: string) -> (letter, plural: string) {
 SEG_PX_PER_BYTE :: f32(8) // 64 B line = 512 px
 
 @(private = "file")
-draw_placement :: proc(label: string, color: Color, size: int, letter: string, x, y: f32) -> f32 {
+draw_placement :: proc(label: string, color: Color, size: int, letter: string, x, y, max_h: f32) -> f32 {
 	p := snap.placement(size, context.temp_allocator)
+	// Large types need many lines; draw what fits and count the rest.
 	lines := p.lines
-	block_h := f32(lines) * 34 + f32(lines - 1) * 4
+	shown := clamp(int((max_h + 4) / (34 + 4)), 1, lines)
+	block_h := f32(shown) * 34 + f32(shown - 1) * 4
 	draw_text(.Mono_Regular, 13, label, x, y + block_h / 2, color)
 	lx := x + 40 + 20
-	for line in 0 ..< lines {
+	for line in 0 ..< shown {
 		ly := y + f32(line) * (34 + 4)
 		draw_text(.Mono_Regular, 11, fmt.tprintf("%d", line), lx, ly + 17, TEXT_4)
 		bx := lx + 20 + 12
@@ -180,7 +182,8 @@ draw_placement :: proc(label: string, color: Color, size: int, letter: string, x
 	}
 	cx := lx + 20 + 12 + 512 + 20
 	draw_text(.Mono_SemiBold, 28, fmt.tprintf("%d", lines), cx, y + block_h / 2 - 8, color)
-	draw_text(.Mono_Regular, 11, "lines", cx, y + block_h / 2 + 16, TEXT_3)
+	sub := shown < lines ? fmt.tprintf("lines \u00b7 +%d", lines - shown) : "lines"
+	draw_text(.Mono_Regular, 11, sub, cx, y + block_h / 2 + 16, TEXT_3)
 	return block_h
 }
 
@@ -192,6 +195,7 @@ contains_int :: proc(list: []int, v: int) -> bool {
 
 @(private = "file")
 format_kb_delta :: proc(bytes: int) -> string {
+	if bytes == 0 do return "="
 	kb := f32(abs(bytes)) / 1000
 	sign := bytes > 0 ? "+" : (bytes < 0 ? "−" : "")
 	if kb == f32(int(kb)) do return fmt.tprintf("%s%d KB", sign, int(kb))
@@ -281,9 +285,15 @@ draw_memory_lens :: proc(win: ^Win, d: ^snap.Delta) {
 		if has_old do append(&placements, Placement_Row{fmt.tprintf("%d", d.from), TEXT_3, old_t.size})
 		append(&placements, Placement_Row{fmt.tprintf("%d", d.to), grew ? COST : TEXT, new_t.size})
 	}
-	for pl in placements {
-		py += draw_placement(pl.label, pl.col, pl.size, letter, left.x + 16, py) + 22
+	push_clip(left)
+	for pl, i in placements {
+		left_bottom := left.y + left.h - 16
+		// Share the card's height between the rows that remain.
+		max_h := (left_bottom - py) / f32(len(placements) - i) - 22
+		if max_h < 34 do break
+		py += draw_placement(pl.label, pl.col, pl.size, letter, left.x + 16, py, max_h) + 22
 	}
+	pop_clip()
 
 	rc := Rect{left.x + left.w + 16, y, right_w, bottom_h}
 	draw_card(rc)

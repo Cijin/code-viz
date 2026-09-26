@@ -16,7 +16,7 @@ Byte_Range :: struct {
 
 Placement :: struct {
 	lines:    int,   // cache lines used by the first PLACEMENT_ELEMS elements
-	spanning: []int, // element indices that cross a 64 B boundary
+	spanning: []int, // elements touching more lines than their size needs
 }
 
 Type_Delta :: struct {
@@ -122,7 +122,10 @@ placement :: proc(size: int, allocator := context.allocator) -> Placement {
 	spanning := make([dynamic]int, allocator)
 	for i in 0 ..< PLACEMENT_ELEMS {
 		start, end := i * size, (i + 1) * size - 1
-		if start / CACHE_LINE != end / CACHE_LINE do append(&spanning, i)
+		// An element larger than a line always spans lines; it is split only
+		// when misalignment makes it touch one more than its size needs.
+		touched := end / CACHE_LINE - start / CACHE_LINE + 1
+		if touched > (size + CACHE_LINE - 1) / CACHE_LINE do append(&spanning, i)
 	}
 	total := PLACEMENT_ELEMS * size
 	return Placement{lines = (total + CACHE_LINE - 1) / CACHE_LINE, spanning = spanning[:]}

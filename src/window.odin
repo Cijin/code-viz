@@ -67,6 +67,7 @@ win_destroy :: proc(win: ^Win) {
 	delete(g.indices)
 	delete(g.path_a)
 	delete(g.path_b)
+	delete(g.clips)
 	ttf.DestroyRendererTextEngine(g.engine)
 	sdl.DestroyRenderer(g.renderer)
 	sdl.DestroyWindow(g.window)
