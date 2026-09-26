@@ -136,25 +136,6 @@ real_build_memory_test :: proc(t: ^testing.T) {
 	testing.expect_value(t, sizes[1], 24)
 }
 
-// The Memory lens "apply" rewrites the declaration in the declared file.
-@(test)
-reorder_source_test :: proc(t: ^testing.T) {
-	src := #load("../fixtures/frame_v214/frame.odin", string)
-	out, ok := snap.reorder_struct_source(src, 12, {"kind", "flags", "length", "stream_id"}, context.temp_allocator)
-	testing.expect(t, ok)
-	lines := strings.split_lines(out, context.temp_allocator)
-	testing.expect_value(t, strings.trim_space(lines[12]), "kind:      u8,")
-	testing.expect_value(t, strings.trim_space(lines[13]), "flags:     u8,")
-	testing.expect_value(t, strings.trim_space(lines[14]), "length:    u32,")
-	testing.expect_value(t, strings.trim_space(lines[15]), "stream_id: u64,")
-	// Everything outside the struct is unchanged.
-	testing.expect_value(t, len(lines), len(strings.split_lines(src, context.temp_allocator)))
-
-	// A stale order (field names that don't match) is refused.
-	_, stale := snap.reorder_struct_source(src, 12, {"kind", "flags", "length"}, context.temp_allocator)
-	testing.expect(t, !stale)
-}
-
 @(test)
 glance_memory_lane_test :: proc(t: ^testing.T) {
 	prev := snap.Snapshot{id = 213, types = parse_sample(SAMPLE_DWARF_V213)}

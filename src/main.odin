@@ -4,7 +4,6 @@ import "core:fmt"
 import "core:mem/virtual"
 import "core:os"
 import "core:strings"
-import "core:thread"
 import sdl "vendor:sdl3"
 import ttf "vendor:sdl3/ttf"
 import "pipeline"
@@ -116,7 +115,7 @@ render_win :: proc(win: ^Win) {
 		top := draw_tabs(win, from, to, "", status_color(app.glance.status))
 		draw_glance(&app.glance, top, win.w, win.h, win.mouse_x, win.mouse_y, &win.hits)
 	case .Memory:
-		draw_memory_lens(win, d, &win.hits)
+		draw_memory_lens(win, d)
 	case .Execution:
 		draw_execution_lens(win, d, &win.hits)
 	case .Safety:
@@ -137,47 +136,6 @@ show_view :: proc(view: View) {
 	app.win.pinned = -1
 }
 
-Fix_Job :: struct {
-	path:  string,
-	line:  int,
-	order: []string,
-}
-
-// Runs off the UI thread: rewrites the struct's field order in the source
-// file. The watcher then rebuilds and the lens shows the result.
-apply_fix_worker :: proc(job: ^Fix_Job) {
-	defer {
-		for s in job.order do delete(s)
-		delete(job.order)
-		delete(job.path)
-		free(job)
-	}
-	data, err := os.read_entire_file(job.path, context.allocator)
-	if err != nil do return
-	defer delete(data)
-	text, ok := snap.reorder_struct_source(string(data), job.line, job.order)
-	if !ok {
-		fmt.eprintln("substrate: struct changed since the build; fix not applied")
-		return
-	}
-	defer delete(text)
-	_ = os.write_entire_file(job.path, text)
-}
-
-apply_fix :: proc() {
-	if app.delta == nil || len(app.delta.types) == 0 do return
-	td := app.delta.types[0]
-	fix, ok := td.suggested.?
-	new_t, ok2 := td.new.?
-	if !ok || !ok2 do return
-	job := new(Fix_Job)
-	job.path = fmt.aprintf("%s/%s", app.pipe.project_dir, new_t.pos.file)
-	job.line = int(new_t.pos.line)
-	job.order = make([]string, len(fix.fields))
-	for f, i in fix.fields do job.order[i] = strings.clone(f.name)
-	thread.create_and_start_with_poly_data(job, apply_fix_worker, self_cleanup = true)
-}
-
 handle_action :: proc(a: Action, index := 0) {
 	switch a {
 	case .None:
@@ -186,7 +144,6 @@ handle_action :: proc(a: Action, index := 0) {
 	case .Open_Execution: show_view(.Execution)
 	case .Open_Memory:    show_view(.Memory)
 	case .Open_Safety:    show_view(.Safety)
-	case .Apply_Fix:      apply_fix()
 	case .Toggle_Asm:
 		if app.win != nil do app.win.show_asm = !app.win.show_asm
 	case .Select_Block:

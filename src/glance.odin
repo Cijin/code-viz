@@ -6,7 +6,6 @@ import snap "snapshot"
 Action :: enum u8 {
 	None,
 	Open_Glance,
-	Apply_Fix,
 	Toggle_Asm,
 	Select_Block,
 	Open_Blocks,

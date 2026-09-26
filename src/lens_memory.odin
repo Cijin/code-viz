@@ -91,7 +91,10 @@ draw_layout_card :: proc(c: Layout_Card, r: Rect) {
 	if frac < 1 do hatch_rect({x + (w - 2) * frac + 2, y, (w - 2) * (1 - frac), 8}, 2)
 	y += 8 + 14
 
-	// Byte grid: 8 columns; offsets on the left.
+	// Byte grid: 8 columns; offsets on the left. Clipped to the card, which
+	// may be shorter than the type.
+	push_clip({r.x, y, r.w, r.y + r.h - 16 - y})
+	defer pop_clip()
 	gx := x + GRID_OFFS_W + 8
 	gw := w - GRID_OFFS_W - 8
 	col_w := (gw - 7 * GRID_GAP) / 8
@@ -210,21 +213,7 @@ draw_totals_bars :: proc(label, delta_text: string, delta_col: Color, values: []
 	return 16 + 6 + f32(len(values)) * 20 - 6
 }
 
-// Source text for the suggested order, one field per line, names aligned.
-struct_source :: proc(t: snap.Type_Layout, allocator := context.allocator) -> []string {
-	lines := make([dynamic]string, allocator)
-	width := 0
-	for f in t.fields do width = max(width, len(f.name) + 1)
-	append(&lines, fmt.aprintf("%s :: struct {{", snap.short_name(t.name), allocator = allocator))
-	for f in t.fields {
-		pad := strings.repeat(" ", width - len(f.name), context.temp_allocator)
-		append(&lines, fmt.aprintf("    %s:%s %s,", f.name, pad, f.type_name, allocator = allocator))
-	}
-	append(&lines, strings.clone("}", allocator))
-	return lines[:]
-}
-
-draw_memory_lens :: proc(win: ^Win, d: ^snap.Delta, hits: ^[dynamic]Hit) {
+draw_memory_lens :: proc(win: ^Win, d: ^snap.Delta) {
 	y := draw_lens_top(win, u32(d.from), u32(d.to), "DWARF")
 	if len(d.types) == 0 {
 		draw_lens_empty(win, y, "No type changes")
@@ -264,6 +253,10 @@ draw_memory_lens :: proc(win: ^Win, d: ^snap.Delta, hits: ^[dynamic]Hit) {
 	card_w := (w - 2 * 16) / 3
 	card_h := f32(0)
 	for c in cards do card_h = max(card_h, card_height(c.t))
+	// Large types are taller than the window: cap the cards (their grids are
+	// clipped) so the cache-line and totals section below always fits.
+	LOWER_MIN_H :: f32(260)
+	card_h = min(card_h, max(win.h - LENS_PAD_BOTTOM - LOWER_MIN_H - LENS_GAP - y, 160))
 	for c, i in cards do draw_layout_card(c, {x + f32(i) * (card_w + 16), y, card_w, card_h})
 	y += card_h + LENS_GAP
 
@@ -312,23 +305,4 @@ draw_memory_lens :: proc(win: ^Win, d: ^snap.Delta, hits: ^[dynamic]Hit) {
 	pct_text := pct > 0 ? fmt.tprintf("+%d%%", pct) : (pct < 0 ? fmt.tprintf("−%d%%", -pct) : "=")
 	ry += draw_totals_bars("cache lines", pct_text, delta_color(pct), line_vals[:n], bar_cols[:n], ix, ry, iw) + 18
 
-	if !has_fix do return
-	// Suggested source and the apply button, pinned to the card bottom.
-	src := struct_source(fix_t, context.temp_allocator)
-	line_h := f32(12.5 * 1.5)
-	code_h := 12 + f32(len(src)) * line_h + 12
-	button := Rect{ix, rc.y + rc.h - 16 - 44, iw, 44}
-	code := Rect{ix, button.y - 18 - code_h, iw, code_h}
-	fill_rrect(code, 6, BG_CODE)
-	for l, i in src {
-		moved := false
-		for m in td.moved do if strings.has_prefix(strings.trim_space(l), fmt.tprintf("%s:", m)) do moved = true
-		draw_text(.Mono_Regular, 12.5, l, code.x + 12, code.y + 12 + f32(i) * line_h + line_h / 2, moved ? GAIN : TEXT_3)
-	}
-	hovered := rect_contains(button, win.mouse_x, win.mouse_y)
-	fill_rrect(button, 6, hovered ? BG_RAISED : BG_LANE)
-	stroke_rrect(button, 6, 1, GAIN)
-	aw, _ := text_size(.Mono_Regular, 13, "apply")
-	draw_text(.Mono_Regular, 13, "apply", button.x + (button.w - aw) / 2, button.y + 22, TEXT)
-	append(hits, Hit{rect = button, action = .Apply_Fix})
 }

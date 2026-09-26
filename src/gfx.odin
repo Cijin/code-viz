@@ -255,3 +255,13 @@ make_hatch_texture :: proc() {
 	sdl.SetTextureBlendMode(g.hatch, {.BLEND})
 	sdl.SetTextureScaleMode(g.hatch, .NEAREST)
 }
+
+// Restricts drawing to `r` (logical coords) until pop_clip.
+push_clip :: proc(r: Rect) {
+	clip := sdl.Rect{i32(px(r.x)), i32(px(r.y)), i32(math.ceil(px(max(r.w, 0)))), i32(math.ceil(px(max(r.h, 0))))}
+	sdl.SetRenderClipRect(g.renderer, &clip)
+}
+
+pop_clip :: proc() {
+	sdl.SetRenderClipRect(g.renderer, nil)
+}
