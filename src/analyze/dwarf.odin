@@ -1,5 +1,6 @@
 package analyze
 
+import "core:os"
 import "core:slice"
 import "core:strconv"
 import "core:strings"
@@ -298,7 +299,14 @@ analyze_dwarf :: proc(artifact, root: string, allocator := context.allocator) ->
 	tool := find_tool("llvm-dwarfdump")
 	if tool == "" do return
 	path := dwarf_path(artifact, context.temp_allocator)
-	text := run_tool({tool, "--debug-info", path}, context.temp_allocator) or_return
+	// The dump is ~12 MB for a mid-size program. Reading it through a pipe
+	// costs ~140 ms more than letting the tool write a file and reading that.
+	out_file := strings.concatenate({artifact, ".dwarf.txt"}, context.temp_allocator)
+	run_tool({tool, "--debug-info", "-o", out_file, path}, context.temp_allocator) or_return
+	data, err := os.read_entire_file(out_file, context.temp_allocator)
+	os.remove(out_file)
+	if err != nil do return
+	text := string(data)
 	dies := parse_dies(text, context.temp_allocator)
 	idx := index_dies(dies, context.temp_allocator)
 	res.types = extract_types(dies, idx, root, allocator)

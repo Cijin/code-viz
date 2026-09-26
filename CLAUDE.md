@@ -22,7 +22,7 @@ This is a desktop app, written in Odin with SDL3. It shows how each successful b
 
 ## Commands
 
-- Build: `odin build src -out:build/substrate -debug`
+- Build: `odin build src -out:build/substrate -o:speed -debug` (without `-o:speed`, `-debug` means `-o:none` and analysis is ~5× slower)
 - Run: `./build/substrate <project_dir>`
 - Screenshot (one frame, then exit): `./build/substrate --screenshot out.bmp <project_dir>`
 - Test: `odin test tests`
