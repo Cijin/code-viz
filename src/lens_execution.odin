@@ -37,6 +37,26 @@ draw_stat_box :: proc(glyph: snap.Glyph, old, new: int, right, cy: f32) -> f32 {
 	return w
 }
 
+// Stack spills, counted apart from the rows (see snapshot.is_spill).
+@(private = "file")
+draw_spill_box :: proc(old, new: int, right, cy: f32) -> f32 {
+	d := new - old
+	delta := format_delta(d)
+	sub := fmt.tprintf("%d\u2192%d", old, new)
+	lw, _ := text_size(.Mono_Regular, 13, "spills")
+	dw, _ := text_size(.Mono_Regular, 16, delta)
+	sw, _ := text_size(.Mono_Regular, 13, sub)
+	w := 14 + lw + 10 + dw + 10 + sw + 14
+	r := Rect{right - w, cy - 20, w, 40}
+	fill_rrect(r, 6, BG_PANEL)
+	stroke_rrect(r, 6, 1, LINE)
+	x := r.x + 14
+	x += draw_text(.Mono_Regular, 13, "spills", x, cy, TEXT_3) + 10
+	x += draw_text(.Mono_Regular, 16, delta, x, cy, delta_color(d)) + 10
+	draw_text(.Mono_Regular, 13, sub, x, cy, TEXT_3)
+	return w
+}
+
 // Glyph cells, or the instruction text when "show asm" is on. Clips to `w`
 // and says how many were left out.
 @(private = "file")
@@ -67,8 +87,8 @@ draw_exec_rows :: proc(win: ^Win, pd: ^snap.Proc_Delta, from, to: snap.Build_Id,
 	right := r.x + r.w - 16
 
 	hy := r.y + 8 + EXEC_HEAD_H / 2
-	draw_caps(fmt.tprintf("%d", from), col_old, hy)
-	draw_caps(fmt.tprintf("%d", to), col_new, hy, TEXT)
+	draw_caps(fmt.tprintf("build %d", from), col_old, hy)
+	draw_caps(fmt.tprintf("build %d", to), col_new, hy, TEXT)
 	draw_text_right(.Sans_SemiBold, CAPS_SIZE, "Δ", right, hy, TEXT_3)
 
 	y := r.y + 8 + EXEC_HEAD_H
@@ -254,6 +274,7 @@ draw_execution_lens :: proc(win: ^Win, d: ^snap.Delta, hits: ^[dynamic]Hit) {
 	cy := y + 20
 	draw_text(.Mono_SemiBold, LENS_TITLE, snap.short_name(pd.symbol), x, cy, TEXT)
 	right := x + w
+	right -= draw_spill_box(pd.old_spills, pd.new_spills, right, cy) + 10
 	right -= draw_stat_box(.Call, pd.old_kinds[.Call], pd.new_kinds[.Call], right, cy) + 10
 	right -= draw_stat_box(.Branch, pd.old_kinds[.Branch], pd.new_kinds[.Branch], right, cy) + 10
 	draw_stat_box(.Op, pd.old_count, pd.new_count, right, cy)

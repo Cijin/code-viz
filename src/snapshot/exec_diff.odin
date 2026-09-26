@@ -35,6 +35,38 @@ Proc_Delta :: struct {
 	return_type:     string,
 	old_return_size: int,
 	new_return_size: int,
+	old_spills:      int, // stack loads/stores, left out of the rows
+	new_spills:      int,
+}
+
+// Loads and stores that address the stack frame are register spills: at
+// -o:minimal nearly every value takes one, and they bury the instructions
+// that do the line's work. The rows leave them out and count them instead.
+is_spill :: proc(insn: Insn) -> bool {
+	if insn.kind != .Mem do return false
+	_, _, stack, ok := mem_access(insn.text)
+	return ok && stack
+}
+
+@(private = "file")
+without_spills :: proc(insns: []Insn) -> (work: []Insn, spills: int) {
+	out := make([dynamic]Insn, context.temp_allocator)
+	for insn in insns {
+		if is_spill(insn) {
+			spills += 1
+			continue
+		}
+		append(&out, insn)
+	}
+	return out[:], spills
+}
+
+// The mnemonic alone: a different register or stack offset is not a
+// changed instruction.
+@(private = "file")
+mnemonic_of :: proc(text: string) -> string {
+	if sep := strings.index_any(text, " \t"); sep >= 0 do return text[:sep]
+	return text
 }
 
 glyph_of :: proc(k: Insn_Kind) -> Glyph {
@@ -45,26 +77,6 @@ glyph_of :: proc(k: Insn_Kind) -> Glyph {
 	case .Call:   return .Call
 	}
 	return .Op
-}
-
-// Operand text without addresses, immediates and symbol annotations, so a
-// moved line or relinked call doesn't count as a changed instruction.
-normalize_insn :: proc(text: string, allocator := context.temp_allocator) -> string {
-	b := strings.builder_make(allocator)
-	s := text
-	if lt := strings.index_byte(s, '<'); lt >= 0 do s = s[:lt]
-	i := 0
-	for i < len(s) {
-		if i + 1 < len(s) && s[i] == '0' && s[i + 1] == 'x' {
-			i += 2
-			for i < len(s) && strings.contains_rune("0123456789abcdefABCDEF", rune(s[i])) do i += 1
-			strings.write_byte(&b, '#')
-			continue
-		}
-		strings.write_byte(&b, s[i])
-		i += 1
-	}
-	return strings.trim_space(strings.to_string(b))
 }
 
 // Share of characters in the common prefix and suffix of two lines.
@@ -134,7 +146,7 @@ diff_line :: proc(old, now: []Insn, allocator := context.allocator) -> (old_g, n
 	for j < len(now) {
 		if i < len(old) && old[i].kind == now[j].kind && lcs[i * w + j] == lcs[(i + 1) * w + j + 1] + 1 {
 			mark := Mark.Plain
-			if normalize_insn(old[i].text) != normalize_insn(now[j].text) {
+			if mnemonic_of(old[i].text) != mnemonic_of(now[j].text) {
 				mark = .Changed
 				changed = true
 			}
@@ -204,14 +216,17 @@ diff_proc :: proc(prev, curr: ^Snapshot, symbol: string, pairs: map[string][]i32
 	new_code, has := curr.procs[symbol]
 	pd.is_new = !had
 	pd.removed = !has
-	pd.old_count, pd.new_count = len(old_code.insns), len(new_code.insns)
-	for insn in old_code.insns do pd.old_kinds[insn.kind] += 1
-	for insn in new_code.insns do pd.new_kinds[insn.kind] += 1
+	old_work, old_spills := without_spills(old_code.insns)
+	new_work, new_spills := without_spills(new_code.insns)
+	pd.old_spills, pd.new_spills = old_spills, new_spills
+	pd.old_count, pd.new_count = len(old_work), len(new_work)
+	for insn in old_work do pd.old_kinds[insn.kind] += 1
+	for insn in new_work do pd.new_kinds[insn.kind] += 1
 	pd.old_return_size, pd.new_return_size = old_code.return_size, new_code.return_size
 	pd.return_type = strings.clone(new_code.return_type != "" ? new_code.return_type : old_code.return_type, allocator)
 
-	old_lines, old_order, old_cold := group_by_line(old_code.insns)
-	new_lines, new_order, new_cold := group_by_line(new_code.insns)
+	old_lines, old_order, old_cold := group_by_line(old_work)
+	new_lines, new_order, new_cold := group_by_line(new_work)
 	if len(new_order) > 0 do pd.file = strings.clone(new_order[0].file, allocator)
 	else if len(old_order) > 0 do pd.file = strings.clone(old_order[0].file, allocator)
 

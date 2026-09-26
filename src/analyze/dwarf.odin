@@ -30,21 +30,21 @@ Die_Tag :: enum u8 {
 
 Die :: struct {
 	offset:      u64,
-	tag:         Die_Tag,
 	depth:       int,
 	parent:      int, // index, -1 at top level
 	name:        string,
 	type_ref:    u64,
 	type_name:   string, // the quoted name beside a DW_AT_type ref
 	byte_size:   int,
-	has_size:    bool,
 	alignment:   int,
 	member_loc:  int,
 	count:       int,
-	has_count:   bool,
 	decl_file:   string,
-	decl_line:   i32,
 	origin_name: string, // DW_AT_abstract_origin of an inlined subroutine
+	decl_line:   i32,
+	tag:         Die_Tag,
+	has_size:    bool,
+	has_count:   bool,
 	declaration: bool,
 }
 

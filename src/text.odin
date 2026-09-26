@@ -2,6 +2,7 @@ package main
 
 import "core:fmt"
 import "core:strings"
+import "core:unicode/utf8"
 import sdl "vendor:sdl3"
 import ttf "vendor:sdl3/ttf"
 
@@ -114,11 +115,13 @@ draw_text_right :: proc(face: Face, size: f32, s: string, right, cy: f32, c: Col
 	return w
 }
 
-// Letter-spaced text (CSS `letter-spacing`), drawn per character.
+// Letter-spaced text (CSS `letter-spacing`) is drawn per character, not per byte, so multi-byte
+// characters such as `·` or `→` stay intact.
 tracked_width :: proc(face: Face, size, tracking: f32, s: string) -> f32 {
 	w: f32
-	for i in 0 ..< len(s) {
-		cw, _ := text_size(face, size, s[i:i + 1])
+	for _, i in s {
+		_, n := utf8.decode_rune_in_string(s[i:])
+		cw, _ := text_size(face, size, s[i:i + n])
 		w += cw + tracking * size
 	}
 	return max(w - tracking * size, 0)
@@ -126,8 +129,9 @@ tracked_width :: proc(face: Face, size, tracking: f32, s: string) -> f32 {
 
 draw_tracked :: proc(face: Face, size, tracking: f32, s: string, x, cy: f32, c: Color) -> f32 {
 	cx := x
-	for i in 0 ..< len(s) {
-		cw := draw_text(face, size, s[i:i + 1], cx, cy, c)
+	for _, i in s {
+		_, n := utf8.decode_rune_in_string(s[i:])
+		cw := draw_text(face, size, s[i:i + n], cx, cy, c)
 		cx += cw + tracking * size
 	}
 	return max(cx - x - tracking * size, 0)

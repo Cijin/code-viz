@@ -87,3 +87,18 @@ Per-line matching uses the longest common subsequence of instruction kinds ("by 
 - **Opt-outs** are `#no_bounds_check` (procedure tag or statement), `transmute`, a written `[^]T` type, and `cast(^T)` / `(^T)(x)`. The last is reported as a raw pointer cast because the operand's type is unknown.
 - **The Safety lens leaves out** the mockup's "fix" column and the "can wrap" value. A verified check-removing rewrite needs the optimizer to prove the bounds, and at `-o:minimal` it does not. No analyzer for wrapping arithmetic is specified. Both show as absent instead of made-up numbers.
 - **Vet** (`odin check -vet -no-entry-point`) runs as T1 after the green event, about 55 ms on the fixture. Only findings the previous build did not report are new.
+
+## Update: stack spills left out of the execution rows
+
+Loads and stores that address the stack frame (`[sp…]`/`[x29…]`, `[rsp…]`/`[rbp…]`) are counted separately as "spills" and are no longer drawn in the rows. An instruction counts as "changed" only when its mnemonic changes; register and offset renames do not count. `parse_header`, v213 → v214:
+
+| Line | Old → new |
+|---|---|
+| 24 | 7 → 7 |
+| 25 `kind` | 4 → 5 |
+| 26 | 10 → 10 |
+| 27 `flags` | 0 → 4 |
+| 28 | 8 → 8 |
+| 29 `return` | 4 → 16 |
+
+This matches `Execution.dc.html`, which shows 4 new instructions on the `flags` line.
