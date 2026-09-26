@@ -1,6 +1,7 @@
 package main
 
 import "core:fmt"
+import "core:math"
 import "core:strings"
 import "core:unicode/utf8"
 import sdl "vendor:sdl3"
@@ -105,7 +106,9 @@ draw_text :: proc(face: Face, size: f32, s: string, x, cy: f32, c: Color) -> f32
 	if t == nil do return 0
 	w, h := text_size(face, size, s)
 	ttf.SetTextColor(t, c.r, c.g, c.b, c.a)
-	ttf.DrawRendererText(t, px(x), px(cy - h / 2))
+	// Whole physical pixels: at fractional positions the glyph atlas is
+	// sampled between texels and neighbouring glyphs bleed in as stray marks.
+	ttf.DrawRendererText(t, math.round(px(x)), math.round(px(cy - h / 2)))
 	return w
 }
 
