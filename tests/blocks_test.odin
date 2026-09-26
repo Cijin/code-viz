@@ -132,3 +132,23 @@ blocks_structure_test :: proc(t: ^testing.T) {
 	testing.expect(t, b.sum_exec > 0)
 	testing.expect(t, b.selected >= 0 && b.rows[b.selected].changed)
 }
+
+// First build of a session: no previous snapshot. The build is compared with
+// itself, so nothing is changed but the lenses still get data.
+@(test)
+first_build_has_current_state_test :: proc(t: ^testing.T) {
+	curr := full_snapshot(214, SAMPLE_OBJDUMP_V214, SAMPLE_DWARF_V214, SOURCE_V214, 24)
+	d := snap.diff(nil, &curr, context.temp_allocator)
+	testing.expect_value(t, d.from, d.to)
+	testing.expect(t, len(d.procs) > 0)
+	testing.expect(t, len(d.types) > 0)
+	for p in d.procs do testing.expect(t, !p.changed)
+	// Memory opens on a type a reorder would shrink.
+	_, has_fix := d.types[0].suggested.?
+	testing.expect(t, has_fix)
+	testing.expect_value(t, len(d.blocks.rows), 0)
+
+	history := make([dynamic]snap.Build_Dots, context.temp_allocator)
+	m := snap.build_glance(&d, history[:], context.temp_allocator)
+	testing.expect(t, !m.exec.changed && !m.memory.changed && !m.safety.changed)
+}

@@ -127,3 +127,42 @@ edit_triggers_one_build_test :: proc(t: ^testing.T) {
 	testing.expect(t, failed > second)
 	testing.expect_value(t, pipeline.last_green(&p), second)
 }
+
+// A new session compares its first build with the last session's final
+// green build (kept in the cache with a copy of its source).
+@(test)
+baseline_across_sessions_test :: proc(t: ^testing.T) {
+	project, cache := temp_project(t, FIXTURE_V213, "baseline")
+	defer os.remove_all(project)
+	defer os.remove_all(cache)
+
+	first: snap.Build_Id
+	{
+		p: pipeline.Pipeline
+		testing.expect(t, pipeline.start(&p, project, nil, cache))
+		id, _, ok := wait_for(&p, .Build_Green, 60 * time.Second)
+		testing.expect(t, ok)
+		first = id
+		pipeline.stop(&p)
+	}
+
+	// Next session, after an edit made while Substrate was closed.
+	v214, _ := os.read_entire_file(fmt.tprintf("%s/frame.odin", FIXTURE_V214), context.temp_allocator)
+	_ = os.write_entire_file(fmt.tprintf("%s/frame.odin", project), v214)
+
+	p: pipeline.Pipeline
+	testing.expect(t, pipeline.start(&p, project, nil, cache))
+	defer pipeline.stop(&p)
+	start := time.tick_now()
+	for time.tick_since(start) < 60 * time.Second {
+		ev, got := next_event(&p, 60 * time.Second)
+		if !got do break
+		defer pipeline.event_free(&ev)
+		if ev.kind != .Build_Green do continue
+		testing.expect_value(t, ev.delta.from, first)
+		testing.expect(t, ev.delta.to > first)
+		testing.expect(t, len(ev.delta.types) > 0 && ev.delta.types[0].size_delta == 8)
+		return
+	}
+	testing.expect(t, false, "no green build in the second session")
+}

@@ -15,6 +15,8 @@ import snap "../snapshot"
 // snapshots. Requests that queue up while a build runs collapse into one.
 @(private)
 builder_loop :: proc(p: ^Pipeline) {
+	// The last session's final build becomes the first comparison point.
+	if p.baseline != 0 do load_baseline(p)
 	for {
 		_, ok := chan.recv(p.requests)
 		if !ok || sync.atomic_load(&p.quit) do return
@@ -92,8 +94,9 @@ run_build :: proc(p: ^Pipeline) {
 		context.allocator = virtual.arena_allocator(&s.arena)
 		s.id = id
 		s.artifact = strings.clone(artifact)
-		run_analyzers(p, s)
+		run_analyzers(p, s, read_sources(p.project_dir))
 	}
+	save_build_sources(dir, s.source)
 
 	d := new(Owned_Delta, shared_allocator())
 	if virtual.arena_init_growing(&d.arena) != nil {
@@ -110,6 +113,7 @@ run_build :: proc(p: ^Pipeline) {
 
 	prev_vet := p.prev != nil ? p.prev.vet : nil
 	keep_green(p, id)
+	save_last_green(p, id)
 	sync.atomic_store(&p.last_green, id)
 	emit(p, Event{kind = .Build_Green, id = id, delta = d})
 
@@ -139,8 +143,8 @@ run_build :: proc(p: ^Pipeline) {
 // Analyzer stage (SPEC §6). Runs with context.allocator set to the
 // snapshot's arena.
 @(private)
-run_analyzers :: proc(p: ^Pipeline, s: ^Owned_Snapshot) {
-	s.source = read_sources(p.project_dir)
+run_analyzers :: proc(p: ^Pipeline, s: ^Owned_Snapshot, source: map[string][]string) {
+	s.source = source
 	s.procs = make(map[string]snap.Proc_Code)
 
 	dw, dw_ok := analyze.analyze_dwarf(s.artifact, p.project_dir)
@@ -231,7 +235,8 @@ keep_green :: proc(p: ^Pipeline, id: snap.Build_Id) {
 	}
 }
 
-// Build dirs left from a previous session are not tracked; remove them.
+// Build dirs left from a previous session are removed, except the last
+// green one, which is kept as the new session's baseline.
 @(private)
 clean_stale_builds :: proc(p: ^Pipeline) {
 	root := fmt.tprintf("%s/builds", p.cache_dir)
@@ -239,7 +244,57 @@ clean_stale_builds :: proc(p: ^Pipeline) {
 	if err != nil do return
 	defer os.close(fh)
 	entries, _ := os.read_dir(fh, -1, context.temp_allocator)
-	for e in entries do if e.type == .Directory do remove_dir(e.fullpath)
+	keep := p.baseline != 0 ? fmt.tprintf("%d", p.baseline) : ""
+	for e in entries do if e.type == .Directory && e.name != keep do remove_dir(e.fullpath)
+}
+
+// Each green build keeps the source it was built from (<dir>/src), so a
+// later session can analyze it again as its baseline.
+@(private)
+save_build_sources :: proc(dir: string, source: map[string][]string) {
+	for rel, lines in source {
+		path := fmt.tprintf("%s/src/%s", dir, rel)
+		if slash := strings.last_index_byte(path, '/'); slash > 0 do os.make_directory_all(path[:slash])
+		_ = os.write_entire_file(path, strings.join(lines, "\n", context.temp_allocator))
+	}
+}
+
+@(private)
+save_last_green :: proc(p: ^Pipeline, id: snap.Build_Id) {
+	_ = os.write_entire_file(fmt.tprintf("%s/last_green", p.cache_dir), fmt.tprintf("%d\n", id))
+}
+
+// The previous session's last green build, if its artifact and source copy
+// are still on disk.
+@(private)
+load_baseline_id :: proc(p: ^Pipeline) -> snap.Build_Id {
+	data, err := os.read_entire_file(fmt.tprintf("%s/last_green", p.cache_dir), context.temp_allocator)
+	if err != nil do return 0
+	v, ok := strconv.parse_u64(strings.trim_space(string(data)))
+	if !ok || v == 0 do return 0
+	dir := build_dir(p, snap.Build_Id(v))
+	if !os.exists(fmt.tprintf("%s/app", dir)) || !os.exists(fmt.tprintf("%s/src", dir)) do return 0
+	return snap.Build_Id(v)
+}
+
+// Analyzes the baseline build against its saved source, as `p.prev`.
+@(private)
+load_baseline :: proc(p: ^Pipeline) {
+	s := new(Owned_Snapshot, shared_allocator())
+	if virtual.arena_init_growing(&s.arena) != nil {
+		free(s, shared_allocator())
+		return
+	}
+	dir := build_dir(p, p.baseline)
+	{
+		context.allocator = virtual.arena_allocator(&s.arena)
+		s.id = p.baseline
+		s.artifact = fmt.aprintf("%s/app", dir)
+		run_analyzers(p, s, read_sources(fmt.tprintf("%s/src", dir)))
+	}
+	free_all(context.temp_allocator)
+	p.prev = s
+	keep_green(p, p.baseline)
 }
 
 @(private)

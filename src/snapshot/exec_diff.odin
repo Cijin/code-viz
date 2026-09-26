@@ -282,6 +282,8 @@ diff_procs :: proc(prev, curr: ^Snapshot, allocator := context.allocator) -> []P
 		if a.changed != b.changed do return a.changed
 		da, db := abs(a.new_count - a.old_count), abs(b.new_count - b.old_count)
 		if da != db do return da > db
+		// Unchanged: the largest proc first.
+		if a.new_count != b.new_count do return a.new_count > b.new_count
 		return strings.compare(a.symbol, b.symbol) < 0
 	})
 	return out[:]

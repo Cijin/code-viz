@@ -43,16 +43,15 @@ clone_maybe :: proc(m: Maybe(Type_Layout), allocator := context.allocator) -> Ma
 
 // `prev` may be nil (first build). Result is allocated with `allocator`.
 diff :: proc(prev, curr: ^Snapshot, allocator := context.allocator) -> Delta {
-	d := Delta{from = curr.id, to = curr.id}
-	if prev == nil do return d
-	d.from = prev.id
+	// With no previous build, compare the build with itself: nothing is
+	// marked changed, but the lenses still get the current state.
+	prev := prev
+	if prev == nil do prev = curr
+	d := Delta{from = prev.id, to = curr.id}
 
 	raw := diff_types(prev.types, curr.types, context.temp_allocator)
 	types := make([dynamic]Type_Delta, allocator)
 	for td in raw {
-		if td.size_delta == 0 && td.pad_delta == 0 && len(td.new_fields) == 0 {
-			if _, has_old := td.old.?; has_old do continue
-		}
 		append(&types, Type_Delta{
 			name       = strings.clone(td.name, allocator),
 			old        = clone_maybe(td.old, allocator),
@@ -64,12 +63,42 @@ diff :: proc(prev, curr: ^Snapshot, allocator := context.allocator) -> Delta {
 			new_fields = clone_strings(td.new_fields, allocator),
 		})
 	}
+	// Changed types first; then the ones a reorder would shrink most, then
+	// the most padding, so an unchanged build still opens on a useful type.
+	slice.sort_by(types[:], proc(a, b: Type_Delta) -> bool {
+		ca, cb := type_changed(a), type_changed(b)
+		if ca != cb do return ca
+		if abs(a.size_delta) != abs(b.size_delta) do return abs(a.size_delta) > abs(b.size_delta)
+		sa, sb := reorder_savings(a), reorder_savings(b)
+		if sa != sb do return sa > sb
+		pa, pb := type_padding(a), type_padding(b)
+		if pa != pb do return pa > pb
+		return strings.compare(a.name, b.name) < 0
+	})
 	d.types = types[:]
 	d.procs = diff_procs(prev, curr, allocator)
 	d.inline = diff_inlining(prev, curr, allocator)
 	d.safety = diff_safety(prev, curr, allocator)
 	d.blocks = build_blocks(prev, curr, &d, allocator)
 	return d
+}
+
+type_changed :: proc(td: Type_Delta) -> bool {
+	_, had := td.old.?
+	return td.size_delta != 0 || td.pad_delta != 0 || len(td.new_fields) > 0 || !had
+}
+
+@(private = "file")
+reorder_savings :: proc(td: Type_Delta) -> int {
+	t, ok := td.new.?
+	fix, fok := td.suggested.?
+	return ok && fok ? t.size - fix.size : 0
+}
+
+@(private = "file")
+type_padding :: proc(td: Type_Delta) -> int {
+	t, ok := td.new.?
+	return ok ? padding_bytes(t) : 0
 }
 
 // Glance dot for one lane: cost if it got worse, gain if better.
@@ -82,7 +111,7 @@ dot_for :: proc(v: int) -> Dot {
 build_glance :: proc(d: ^Delta, history: []Build_Dots, allocator := context.allocator) -> Glance {
 	g := Glance{status = .Ok, from = d.from, to = d.to}
 
-	if len(d.types) > 0 {
+	if len(d.types) > 0 && d.from != d.to {
 		td := d.types[0]
 		g.memory.changed = td.size_delta != 0 || td.pad_delta != 0
 		g.memory.symbol = short_name(td.name)

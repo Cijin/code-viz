@@ -153,6 +153,8 @@ diff_safety :: proc(prev, curr: ^Snapshot, allocator := context.allocator) -> Sa
 		if a.changed != b.changed do return a.changed
 		da, db := abs(a.new_active - a.old_active), abs(b.new_active - b.old_active)
 		if da != db do return da > db
+		// Unchanged: the proc with the most checks first.
+		if a.new_active != b.new_active do return a.new_active > b.new_active
 		return strings.compare(a.symbol, b.symbol) < 0
 	})
 	sd.procs = out[:]

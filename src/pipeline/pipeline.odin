@@ -72,6 +72,7 @@ Pipeline :: struct {
 	green:       [dynamic]snap.Build_Id, // kept build dirs, oldest first
 	last_green:  snap.Build_Id,          // atomic; 0 before the first green build
 	prev:        ^Owned_Snapshot,        // builder thread only: last green snapshot
+	baseline:    snap.Build_Id,          // last session's final green build, if kept
 }
 
 // Everything that crosses threads (events, snapshots, pipeline state) uses
@@ -122,6 +123,7 @@ start :: proc(p: ^Pipeline, project_dir: string, notify: proc(), cache_dir := ""
 	if os.make_directory_all(fmt.tprintf("%s/builds", p.cache_dir)) != nil && !os.exists(p.cache_dir) do return false
 
 	p.next_id = load_next_id(p)
+	p.baseline = load_baseline_id(p)
 	clean_stale_builds(p)
 
 	p.events, _ = chan.create(chan.Chan(Event), 64, context.allocator)
